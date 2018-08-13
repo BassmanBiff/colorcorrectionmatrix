@@ -3,6 +3,7 @@
 import numpy as np
 import argparse
 from PIL import Image, ImageDraw
+from colorspace import XYZ2sRGB, sRGB2XYZ
 import matplotlib.pyplot as plt
 
 
@@ -90,40 +91,6 @@ def saveResultImg(chart, graph, filename):
     dst.paste(chart, (0, 0))
     dst.paste(graph, (0, chart.height + offset))
     dst.save('{}.png'.format(filename))
-
-
-def sRGB2XYZ(rgbList):
-    # D 50
-    # M = np.array([[0.4360747  0.3850649  0.1430804]
-    #                  [0.2225045  0.7168786  0.0606169]
-    #                  [0.0139322  0.0971045  0.7141733]])
-    # D 65
-    M = np.array([[0.412391, 0.357584, 0.180481],
-                  [0.212639, 0.715169, 0.072192],
-                  [0.019331, 0.119195, 0.950532]])
-    xyzList = []
-    for rgb in rgbList:
-        # (r, g, b)
-        xyz = np.dot(M, rgb.transpose())
-        xyzList.append(xyz.transpose())
-    return np.asarray(xyzList)
-
-
-def XYZ2sRGB(rgbList):
-    # D 50
-    # M = np.array([[3.1338561 -1.6168667 -0.4906146]
-    #                  [-0.9787684  1.9161415  0.0334540]
-    #                  [0.0719453 -0.2289914  1.4052427]])
-    # D 65
-    M = np.array([[3.240970, -1.537383, -0.498611],
-                  [-0.969244, 1.875968, 0.041555],
-                  [0.055630, -0.203977, 1.056972]])
-    xyzList = []
-    for rgb in rgbList:
-        # (r, g, b)
-        xyz = np.dot(M, rgb.transpose())
-        xyzList.append(xyz.transpose())
-    return np.asarray(xyzList)
 
 
 def correctChart(source, ccm):
