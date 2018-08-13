@@ -1,12 +1,10 @@
 #!/usr/bin/env python3
 
-from numpy.random import *
 import numpy as np
-import csv
 import argparse
-import math
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw
 import matplotlib.pyplot as plt
+
 
 def csvfile2nparray(f):
     str_data = f.read()
@@ -20,7 +18,7 @@ def csvfile2nparray(f):
         cells.append(lines[i].split(','))
 
     start_row = 0
-    if not cells[0][0].replace(".","",1).isdigit():
+    if not cells[0][0].replace(".", "", 1).isdigit():
         del cells[0]
         start_row = 1
 
@@ -34,7 +32,8 @@ def csvfile2nparray(f):
 
     return np.asarray(data, dtype=np.float32)
 
-def loadCCM(ccmCsvFile) :
+
+def loadCCM(ccmCsvFile):
     csvData = ccmCsvFile.read()
     lines = csvData.replace(' ', '').split('\n')
     del lines[len(lines) - 1]
@@ -53,6 +52,7 @@ def loadCCM(ccmCsvFile) :
         i += 1
 
     return np.asarray(data)
+
 
 def drawChartComparison(reference, corrected, matchRatio):
     offset = 15
@@ -81,6 +81,7 @@ def drawChartComparison(reference, corrected, matchRatio):
                             fill=(0, 0, 0))
     return im
 
+
 def saveResultImg(chart, graph, filename):
     offset = 0
     dst = Image.new('RGB', (max(chart.width, graph.width) + offset,
@@ -89,6 +90,7 @@ def saveResultImg(chart, graph, filename):
     dst.paste(chart, (0, 0))
     dst.paste(graph, (0, chart.height + offset))
     dst.save('{}.png'.format(filename))
+
 
 def sRGB2XYZ(rgbList):
     # D 50
@@ -106,6 +108,7 @@ def sRGB2XYZ(rgbList):
         xyzList.append(xyz.transpose())
     return np.asarray(xyzList)
 
+
 def XYZ2sRGB(rgbList):
     # D 50
     # M = np.array([[3.1338561 -1.6168667 -0.4906146]
@@ -122,6 +125,7 @@ def XYZ2sRGB(rgbList):
         xyzList.append(xyz.transpose())
     return np.asarray(xyzList)
 
+
 def correctChart(source, ccm):
     sourceXYZ = sRGB2XYZ(source)
     correctedSource = []
@@ -130,6 +134,7 @@ def correctChart(source, ccm):
     correctedSource = np.dot(sourceXYZ, ccm)
 
     return XYZ2sRGB(correctedSource)
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -141,10 +146,11 @@ if __name__ == '__main__':
                         type=argparse.FileType('r'))
     parser.add_argument('outputbasename', action='store',
                         type=str)
-    # parser.add_argument('-g', '--gamma', type=float, default=1.0, action='store',
-    #                     help='Gamma value of reference and source data. (Default=1.0)')
+    # parser.add_argument(
+    #     '-g', '--gamma', action='store', type=float, default=1.0,
+    #     help='Gamma value of reference and source data. (Default=1.0)')
     args = parser.parse_args()
-    #gamma = args.gamma
+    # gamma = args.gamma
 
     ccm = loadCCM(args.ccm)
     reference = csvfile2nparray(args.referenceCsv)
@@ -152,10 +158,13 @@ if __name__ == '__main__':
 
     correctedSource = correctChart(source, ccm)
     diff = np.absolute(np.subtract(reference, correctedSource))
-    matchRatio = np.multiply(np.add(np.divide(np.subtract(correctedSource, reference).sum(axis=1),
-                                              3),
-                                    0),
-                             100)
+    matchRatio = np.multiply(
+        np.add(
+            np.divide(
+                np.subtract(correctedSource, reference).sum(axis=1),
+                3),
+            0),
+        100)
     diffIm = drawChartComparison(reference, correctedSource, matchRatio)
 
     plt.ylim([-15, 15])

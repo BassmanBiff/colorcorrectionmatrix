@@ -1,11 +1,8 @@
 #!/usr/bin/env python3
 
-from numpy.random import *
-import numpy as np
-import csv
 import argparse
-import math
-from PIL import Image, ImageDraw, ImageFont, ImageChops, ImageOps
+from PIL import Image, ImageChops
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -35,9 +32,9 @@ if __name__ == '__main__':
     diff_px = diffIm.getdata()
     data = []
     for i in range(len(diff_px)):
-        rgbRatio = (diff_px[i][0] + diff_px[i][1] + diff_px[i][2]) / 3.0 / 255.0
-        data.append((int(rgbRatio * 255.0),
+        rgbRatio = (diff_px[i][0] + diff_px[i][1] + diff_px[i][2]) / 3. / 255.
+        data.append((int(rgbRatio * 255.),
                      0,
-                     int((1.0 - rgbRatio) * 255.0)))
+                     int((1. - rgbRatio) * 255.)))
     diffIm.putdata(data)
     diffIm.save('{}.png'.format(args.outputBaseName))

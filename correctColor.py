@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 import argparse
 import numpy as np
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image
 
-def loadCCM(ccmCsvFile) :
+
+def loadCCM(ccmCsvFile):
     csvData = ccmCsvFile.read()
     lines = csvData.replace(' ', '').split('\n')
     del lines[len(lines) - 1]
@@ -23,18 +24,22 @@ def loadCCM(ccmCsvFile) :
 
     return np.asarray(data)
 
+
 def gamma_table(gamma_r, gamma_g, gamma_b, gain_r=1.0, gain_g=1.0, gain_b=1.0):
     r_tbl = [min(255, int((x / 255.) ** (gamma_r) * gain_r * 255.)) for x in range(256)]
     g_tbl = [min(255, int((x / 255.) ** (gamma_g) * gain_g * 255.)) for x in range(256)]
     b_tbl = [min(255, int((x / 255.) ** (gamma_b) * gain_b * 255.)) for x in range(256)]
     return r_tbl + g_tbl + b_tbl
 
+
 def applyGamma(img, gamma=2.2):
     inv_gamma = 1. / gamma
     return img.point(gamma_table(inv_gamma, inv_gamma, inv_gamma))
 
+
 def deGamma(img, gamma=2.2):
     return img.point(gamma_table(gamma, gamma, gamma))
+
 
 def sRGB2XYZ(img):
     # D50
@@ -45,9 +50,9 @@ def sRGB2XYZ(img):
     rgb2xyz = (
         0.412391, 0.357584, 0.180481, 0,
         0.212639, 0.715169, 0.072192, 0,
-        0.019331, 0.119195, 0.950532, 0
-    )
+        0.019331, 0.119195, 0.950532, 0)
     return img.convert("RGB", rgb2xyz)
+
 
 def XYZ2sRGB(img):
     # D50
@@ -60,17 +65,19 @@ def XYZ2sRGB(img):
                0.055630, -0.203977, 1.056972, 0)
     return img.convert("RGB", xyz2rgb)
 
+
 def correctColor(img, ccm):
     return img.convert("RGB", tuple(ccm.transpose().flatten()))
 
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('ccm', action='store',
-                        type=argparse.FileType('r'))
+    parser.add_argument('ccm', action='store', type=argparse.FileType('r'))
     parser.add_argument('input', action='store')
     parser.add_argument('output', action='store')
-    parser.add_argument('-g', '--gamma', type=float, default=2.2, action='store',
-                        help='Gamma value of reference and source data. (Default=2.2)')
+    parser.add_argument(
+        '-g', '--gamma', action='store', type=float, default=2.2,
+        help='Gamma value of reference and source data. (Default=2.2)')
     args = parser.parse_args()
     gamma = args.gamma
 
@@ -82,4 +89,3 @@ if __name__ == '__main__':
     input_img = XYZ2sRGB(input_img)
     input_img = applyGamma(input_img, gamma=gamma)
     input_img.save(args.output)
-
