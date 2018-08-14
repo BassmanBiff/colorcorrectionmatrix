@@ -1,6 +1,33 @@
 # Shared colorspace conversions
 
 import numpy as np
+from PIL.Image import Image
+
+
+def loadCCM(ccmCsvFile, illuminant):
+    csvData = ccmCsvFile.read()
+    lines = csvData.replace(' ', '').split('\n')
+    del lines[len(lines) - 1]
+
+    data = list()
+    cells = list()
+
+    for i in range(len(lines)):
+        if lines[i] == illuminant:
+            cells.append(lines[i+1].split(','))
+            cells.append(lines[i+2].split(','))
+            cells.append(lines[i+3].split(','))
+            cells.append(lines[i+4].split(','))
+            break
+
+    i = 0
+    for line in cells:
+        data.append(list())
+        for j in range(len(line)):
+            data[i].append(float(line[j]))
+        i += 1
+
+    return np.asarray(data)
 
 
 def sRGB2XYZ(srgb, illuminant):
@@ -25,7 +52,10 @@ def sRGB2XYZ(srgb, illuminant):
                 xyzSubList.append(xyz.transpose())
             xyzList.append(np.asarray(xyzSubList))
         xyz = np.asarray(xyzList)
-    elif isinstance(srgb, np.array):
+    elif isinstance(srgb, Image):
+        M = list(M.flatten())   # Transpose?
+        for i in (3, 7, 11):
+            M.insert(i, 0)
         xyz = srgb.convert("RGB", M)
 
     return xyz
@@ -53,7 +83,10 @@ def XYZ2sRGB(xyz, illuminant):
                 xyzSubList.append(xyz.transpose())
             xyzList.append(np.asarray(xyzSubList))
         xyz = np.asarray(xyzList)
-    elif isinstance(xyz, np.array):
+    elif isinstance(xyz, Image):
+        M = list(M.flatten())
+        for i in (3, 7, 11):
+            M.insert(i, 0)
         srgb = xyz.convert("RGB", M)
 
     return srgb

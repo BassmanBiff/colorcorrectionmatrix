@@ -57,27 +57,27 @@ def loadCCM(ccmCsvFile):
 
 def drawChartComparison(reference, corrected, matchRatio):
     offset = 15
-    patchSize = 100
-    patchHalfsize = patchSize / 2
-    width = offset + (patchSize + offset) * 6
-    height = offset + (patchSize + offset) * 4
+    patch = 100
+    patchHalf = patch / 2
+    width = offset + (patch + offset) * 6
+    height = offset + (patch + offset) * 4
     im = Image.new("RGB", (width, height), (255, 255, 255))
     draw = ImageDraw.Draw(im)
 
     for i in range(len(reference)):
         ix = i % 6
         iy = int(i / 6)
-        rx = offset + (patchSize + offset) * ix
-        ry = offset + (patchSize + offset) * iy
-        draw.rectangle((rx, ry, rx + patchSize, ry + patchHalfsize),
+        rx = offset + (patch + offset) * ix
+        ry = offset + (patch + offset) * iy
+        draw.rectangle((rx, ry, rx + patch, ry + patchHalf),
                        fill=(int(reference[i][0] * 255),
                              int(reference[i][1] * 255),
                              int(reference[i][2] * 255)))
-        draw.rectangle((rx, ry + patchHalfsize, rx + patchSize, ry + patchSize),
+        draw.rectangle((rx, ry + patchHalf, rx + patch, ry + patch),
                        fill=(int(corrected[i][0] * 255),
                              int(corrected[i][1] * 255),
                              int(corrected[i][2] * 255)))
-        draw.multiline_text((rx + patchHalfsize - 10, ry + 2 + patchSize),
+        draw.multiline_text((rx + patchHalf - 10, ry + 2 + patch),
                             '{0:3.1f}%'.format(matchRatio[i]),
                             fill=(0, 0, 0))
     return im
