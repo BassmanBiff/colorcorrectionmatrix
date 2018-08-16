@@ -1,4 +1,5 @@
 # Compute Color Correction Matrix (CCM)
+
 We compute Color Correction Matrix A.
 In other words, we calculate a 4x3 matrix A which approximate the following equation.  
 
@@ -8,6 +9,9 @@ matrix to correct (24 x 3).
 
 ![reference](./img/referenceStrobo.png)
 ![image to correct](./img/renderedStrobo.png)
+
+## Disclaimer
+This is a fork of [lighttransport/colorcorrectionmatrix](https://github.com/lighttransport/colorcorrectionmatrix). I have added a color extraction tool (extractColor.py) and enabled some of the basic illuminant stuff that was incomplete in the original version. All readme text outside of this disclaimer is from the original project.
 
 ## Data
 We have to prepare color checker patch data as csv format.
