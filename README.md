@@ -94,9 +94,9 @@ Experimental tool to extract average color values from an image containing a sta
 $ extractColor.py source_img.png output_colors.csv -x=30 -y=20
 ```
 
-source_img.png should be an image of a standard x-lite colorchecker grid to extract color info from.
-output_colors.csv will contain a list of average r, g, and b for each color chip. It can be fed directly into computeCCM.
--x and -y can be used to specify the approximate size of color chips to look for, in pixels.
+* source_img.png should be an image of a standard x-lite colorchecker grid to extract color info from.
+*  output_colors.csv will contain a list of average r, g, and b for each color chip. It can be fed directly into computeCCM.
+* -x and -y can be used to specify the approximate size of color chips to look for, in pixels.
 
 # License
 
