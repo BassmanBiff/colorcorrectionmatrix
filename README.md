@@ -1,3 +1,6 @@
+# Disclaimer
+This is a fork of [lighttransport/colorcorrectionmatrix](https://github.com/lighttransport/colorcorrectionmatrix). I have added a color extraction tool (extractColor.py) and enabled some of the basic illuminant stuff that was incomplete in the original version. All readme text outside of the "Extract color" section and this disclaimer is from the original project.
+
 # Compute Color Correction Matrix (CCM)
 
 We compute Color Correction Matrix A.
@@ -9,9 +12,6 @@ matrix to correct (24 x 3).
 
 ![reference](./img/referenceStrobo.png)
 ![image to correct](./img/renderedStrobo.png)
-
-## Disclaimer
-This is a fork of [lighttransport/colorcorrectionmatrix](https://github.com/lighttransport/colorcorrectionmatrix). I have added a color extraction tool (extractColor.py) and enabled some of the basic illuminant stuff that was incomplete in the original version. All readme text outside of this disclaimer is from the original project.
 
 ## Data
 We have to prepare color checker patch data as csv format.
@@ -84,6 +84,19 @@ $ imageDiff.py photo_reference.png corrected.png
 
 The difference is small as the color approaches blue and 
 the difference is big as the color approaches red.
+
+# Extract colors
+
+Experimental tool to extract average color values from an image containing a standard colorchecker x-lite grid.
+
+## Usage
+``` shell
+$ extractColor.py source_img.png output_colors.csv -x=30 -y=20
+```
+
+source_img.png should be an image of a standard x-lite colorchecker grid to extract color info from.
+output_colors.csv will contain a list of average r, g, and b for each color chip. It can be fed directly into computeCCM.
+-x and -y can be used to specify the approximate size of color chips to look for, in pixels.
 
 # License
 
