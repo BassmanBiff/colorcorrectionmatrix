@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 
 import argparse
-import numpy as np
 import csv
+import numpy as np
 
 
 def load_colorchart_csv(f):
