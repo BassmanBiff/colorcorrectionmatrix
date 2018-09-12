@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 
+# TODO: Use all good neighbors when reconstructing chips
 # TODO: Use open ("incomplete") contours when reconstructing missing chips
 # TODO: Don't require size estimate from user
 # TODO: Try template matching to find grid?
 
 import argparse
 import csv
-import cv2                              # Find chips
+import cv2
 import numpy as np
 import rawpy
 import sys
@@ -26,21 +27,25 @@ def check_length(array):
 
 # Parse input
 parser = argparse.ArgumentParser()
-parser.add_argument('input_image', type=str)
-parser.add_argument('output_csv', type=argparse.FileType('w'),
-                    default='colorchart.csv')
-parser.add_argument('-g', '--gamma', type=float, default=2.2)
 parser.add_argument(
-    '-x', type=int, default=35,
+    'input_image', type=str)
+parser.add_argument(
+    'output_csv', type=argparse.FileType('w'), default='colorchart.csv')
+parser.add_argument(
+    '-g', '--gamma', type=float, default=2.2,
+    help='gamma value for linearization, not applied to raw images')
+parser.add_argument(
+    '-x', type=int,
     help='expected width of color chips, in pixels')
 parser.add_argument(
-    '-y', type=int, default=25,     # Should be -h and -w, but -h is taken :(
+    '-y', type=int,     # Should be -h and -w, but -h is taken by "help" :(
     help='expected height of color chips, in pixels')
 args = parser.parse_args()
 
 # Load image
-if args.input_image[-4:] == '.png':     # png
+if args.input_image[-4:] == '.png':     # png with degamma
     img = cv2.imread(args.input_image)
+    img = np.uint8(np.power(img/255, args.gamma) * 255)
 elif args.input_image[-4:] == '.dng':   # dng with sane defaults
     raw = rawpy.imread(args.input_image)
     img = raw.postprocess(
@@ -66,14 +71,14 @@ elif args.input_image[-4:] == '.dng':   # dng with sane defaults
         exp_shift=None,
         exp_preserve_highlights=0.0,
         no_auto_scale=True,
-        gamma=(1, 1),     # (2.222, 4.5) or (1, 1)
+        gamma=(1, 1),
         chromatic_aberration=None,
         bad_pixels_path=None)
 
 # Calculate rescaling factor for display only
 f_scale = min(1, 1024 / np.max(img.shape))
 
-# Handle 16-bit format (keep precision from original image)
+# Handle 10-bit images (keep precision from original image)
 if img.dtype == np.uint16:
     img = img << 6  # 10-bit to 16-bit
     img_display = to_uint8(cv2.resize(img, (0, 0), fx=f_scale, fy=f_scale))
@@ -148,7 +153,6 @@ def add_chip(chip_i, grid_i, grid_j):
               ".".format(grid_j, grid_i, color_grid[grid_j, grid_i], chip_i))
         sys.exit(2)
     color_grid[grid_j, grid_i] = chip_i                     # add to grid
-    # print(chip_i, grid_i, grid_j)
     chip = [int(x * f_scale) for x in color_chips[chip_i]]  # scale for display
     cv2.rectangle(                                          # add to display
         img_display,
@@ -274,12 +278,7 @@ for i in range(6):
     for j in range(4):
         x, y, w, h, = color_chips[color_grid[j, i]]
         for k in range(3):
-            # print(x, y, w, h, j, i, k)
             color_info[j, i, k] = img[y:y + h, x:x + w, 2 - k].mean() / f
-
-# Linearize (degamma)
-if args.input_image[-4:] == '.png':
-    color_info = np.power(color_info, args.gamma)
 
 # Write results
 print("Normalized color values:\ni  r        g        b")
