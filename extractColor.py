@@ -2,7 +2,6 @@
 
 # TODO: Try template matching to find grid?
 # TODO: Don't require size estimate from user
-# TODO: Set contour-search parameters intelligently
 # TODO: Use open ("incomplete") contours when reconstructing missing chips
 
 import argparse
@@ -11,7 +10,6 @@ import cv2                              # Find chips
 import numpy as np
 import rawpy
 import sys
-# from scipy.optimize import curve_fit    # Find missing chips
 
 
 def to_uint8(img):
@@ -20,7 +18,7 @@ def to_uint8(img):
 
 def check_length(a):
     if len(a) < 12:
-        print("Can't construct color grid, exiting.")
+        print("Found {} chips. Can't construct color grid, exiting.".format(len(a)))
         sys.exit(2)
 
 
@@ -44,8 +42,8 @@ args = parser.parse_args()
 # Load image
 if args.input_image[-4:] == '.png':     # png
     img = cv2.imread(args.input_image)
+    img_edges = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
     img_display = cv2.resize(img, (0, 0), fx=args.s, fy=args.s)
-    img_edges = img
 elif args.input_image[-4:] == '.dng':   # dng, with sane defaults
     raw = rawpy.imread(args.input_image)
     img = raw.postprocess(
@@ -74,18 +72,19 @@ elif args.input_image[-4:] == '.dng':   # dng, with sane defaults
         gamma=(1, 1),     # (2.222, 4.5), (1, 1)
         chromatic_aberration=None,
         bad_pixels_path=None)
-    img = img << 6  # 16 to 10 bits
+    img = img << 6  # 10 bits to 16 bits
+    img_edges = to_uint8(cv2.cvtColor(img, cv2.COLOR_RGB2GRAY))
     img_display = to_uint8(cv2.resize(img, (0, 0), fx=args.s, fy=args.s))
-    img_edges = to_uint8(img)
 
 # cv2.imshow('Input', img_display)
 # cv2.waitKey(0)
 
-# Find gradients HACK
-if img.size > 307200:
-    img_edges = cv2.Canny(img_edges, 200, 600, apertureSize=5)
-else:
-    img_edges = cv2.Canny(img_edges, 30, 40, apertureSize=3)
+# Find gradients
+v = np.median(img_edges)
+sigma = 0.33
+lower = int(max(0, (1.0 - sigma) * v))
+upper = int(min(255, (1.0 + sigma) * v))
+img_edges = cv2.Canny(img_edges, lower, upper)
 img_edges, contours, hierarchy = cv2.findContours(
     img_edges, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
