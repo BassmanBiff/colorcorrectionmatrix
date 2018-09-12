@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
-# TODO: Try template matching to find grid?
-# TODO: Don't require size estimate from user
 # TODO: Use open ("incomplete") contours when reconstructing missing chips
+# TODO: Don't require size estimate from user
+# TODO: Try template matching to find grid?
 
 import argparse
 import csv
@@ -16,9 +16,11 @@ def to_uint8(img):
     return (img >> 8).astype(np.uint8)
 
 
-def check_length(a):
-    if len(a) < 12:
-        print("Found {} chips. Can't construct color grid, exiting.".format(len(a)))
+def check_length(array):
+    length = len(array)
+    if length < 12 or length > 24:
+        print("Error: Found {} chips, can't construct color grid"
+              ".".format(length))
         sys.exit(2)
 
 
@@ -28,9 +30,6 @@ parser.add_argument('input_image', type=str)
 parser.add_argument('output_csv', type=argparse.FileType('w'),
                     default='colorchart.csv')
 parser.add_argument('-g', '--gamma', type=float, default=2.2)
-parser.add_argument(
-    '-s', type=float, default=1.0,
-    help='scale factor for display')
 parser.add_argument(
     '-x', type=int, default=35,
     help='expected width of color chips, in pixels')
@@ -42,9 +41,7 @@ args = parser.parse_args()
 # Load image
 if args.input_image[-4:] == '.png':     # png
     img = cv2.imread(args.input_image)
-    img_edges = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
-    img_display = cv2.resize(img, (0, 0), fx=args.s, fy=args.s)
-elif args.input_image[-4:] == '.dng':   # dng, with sane defaults
+elif args.input_image[-4:] == '.dng':   # dng with sane defaults
     raw = rawpy.imread(args.input_image)
     img = raw.postprocess(
         demosaic_algorithm=rawpy.DemosaicAlgorithm.LINEAR,
@@ -69,27 +66,36 @@ elif args.input_image[-4:] == '.dng':   # dng, with sane defaults
         exp_shift=None,
         exp_preserve_highlights=0.0,
         no_auto_scale=True,
-        gamma=(1, 1),     # (2.222, 4.5), (1, 1)
+        gamma=(1, 1),     # (2.222, 4.5) or (1, 1)
         chromatic_aberration=None,
         bad_pixels_path=None)
-    img = img << 6  # 10 bits to 16 bits
+
+# Calculate rescaling factor for display only
+f_scale = min(1, 1024 / np.max(img.shape))
+
+# Handle 16-bit format (keep precision from original image)
+if img.dtype == np.uint16:
+    img = img << 6  # 10-bit to 16-bit
+    img_display = to_uint8(cv2.resize(img, (0, 0), fx=f_scale, fy=f_scale))
     img_edges = to_uint8(cv2.cvtColor(img, cv2.COLOR_RGB2GRAY))
-    img_display = to_uint8(cv2.resize(img, (0, 0), fx=args.s, fy=args.s))
+else:
+    img_display = cv2.resize(img, (0, 0), fx=f_scale, fy=f_scale)
+    img_edges = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
 
 # cv2.imshow('Input', img_display)
 # cv2.waitKey(0)
 
 # Find gradients
-v = np.median(img_edges)
-sigma = 0.33
-lower = int(max(0, (1.0 - sigma) * v))
-upper = int(min(255, (1.0 + sigma) * v))
-img_edges = cv2.Canny(img_edges, lower, upper)
+median, sigma = np.median(img_edges), 0.33      # Tune sigma if needed
+img_edges = cv2.Canny(
+    img_edges,
+    int(max(0, (1.0 - sigma) * median)),
+    int(min(255, (1.0 + sigma) * median)))
 img_edges, contours, hierarchy = cv2.findContours(
     img_edges, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
-cv2.imshow('Edges', cv2.resize(img_edges, (0, 0), fx=args.s, fy=args.s))
-cv2.waitKey(0)
+# cv2.imshow('Edges', cv2.resize(img_edges, (0, 0), fx=f_scale, fy=f_scale))
+# cv2.waitKey(0)
 
 # Find color chips
 color_chips = []    # Format: [top-left x, top-left y, width, height]
@@ -108,26 +114,22 @@ for i in range(len(contours)):
                 [r[0] + pad, r[1] + pad, r[2] - pad2, r[3] - pad2])
 check_length(color_chips)
 
-# Report average h and w for refining input args
+# Remove false positives
 color_array = np.array(color_chips)
 h = int(np.median(color_array[:, 3]))
 w = int(np.median(color_array[:, 2]))
-print('Color chip median size: x={}, y={}'.format(w + pad2, h + pad2))
-
-# Remove false positives
 for i, chip in enumerate(color_chips):
     x, y, = chip[2:]
     if x < w * 0.9 or x > w * 1.1 or \
        y < h * 0.9 or y > h * 1.1:
         color_chips[i] = 0
 color_chips = [chip for chip in color_chips if chip != 0]
-
-print("Color chips found: ", len(color_chips))
 check_length(color_chips)
+print("Color chips found:\t\t", len(color_chips))
 
 # Find leftmost and top chips to define first column and row
 left_i = top_i = 0
-left_x = top_y = 9E9    # Big number
+left_x = top_y = 9E9    # Arbitrary large number
 for i in range(len(color_chips)):
     x, y = color_chips[i][:2]
     if x < left_x:
@@ -141,8 +143,13 @@ color_grid = np.full((4, 6), 255, np.uint8)   # Known shape
 
 def add_chip(chip_i, grid_i, grid_j):
     ''' Add a color chip to both the color grid data and display image '''
+    if color_grid[grid_j, grid_i] != 255:
+        print("Error: Attempted to reassign color_grid[{}, {}] from {} to {}"
+              ".".format(grid_j, grid_i, color_grid[grid_j, grid_i], chip_i))
+        sys.exit(2)
     color_grid[grid_j, grid_i] = chip_i                     # add to grid
-    chip = [int(x * args.s) for x in color_chips[chip_i]]   # scale for display
+    # print(chip_i, grid_i, grid_j)
+    chip = [int(x * f_scale) for x in color_chips[chip_i]]  # scale for display
     cv2.rectangle(                                          # add to display
         img_display,
         (chip[0], chip[1]),
@@ -154,31 +161,33 @@ def add_chip(chip_i, grid_i, grid_j):
 # Assign column and row to detected chips
 for i in range(len(color_chips)):
     x, y, = color_chips[i][:2]
-    # Assign column
+    # Assign column based x distance from leftmost detected chip
+    # 0.8 and 1.2 factors compensate for blank space between adjacent chips
     dist = x - left_x
     for col in range(6):
-        if dist > (w + pad2) * (-0.5 + col * 0.7) \
-           and dist <= (w + pad2) * (0.5 + col * 1.3):
+        # If
+        if dist > (w + pad2) * (-0.5 + col * 0.8) \
+           and dist <= (w + pad2) * (0.5 + col * 1.2):
             chip_col = col
             break
     else:
-        print("Error: Unable to assign column to chip {}, dist={}, "
-              "exiting".format(i, dist))
+        print("Error: Unable to assign column to chip {}, dist={}"
+              ".".format(i, dist))
         sys.exit(2)
-    # Assign row
+    # Assign row based on y distance from topmost detected chip
     dist = y - top_y
     for row in range(4):
-        if dist > (h + pad2) * (-0.5 + row * 0.7) \
-           and dist <= (h + pad2) * (0.5 + row * 1.3):
+        if dist > (h + pad2) * (-0.5 + row * 0.8) \
+           and dist <= (h + pad2) * (0.5 + row * 1.2):
             chip_row = row
             break
     else:
-        print("Error: Unable to assign row to chip {}, dist={}, "
-              "exiting".format(i, dist))
+        print("Error: Unable to assign row to chip {}, dist={}"
+              ".".format(i, dist))
         sys.exit(2)
     add_chip(i, chip_col, chip_row)
 
-# Find average column/row spacing and tilt
+# Find average column/row spacing
 x_spacing = x_n = y_spacing = y_n = 0   # theta = t_n = 0
 for i in range(6):
     for j in range(4):
@@ -209,7 +218,7 @@ y_spacing = int(y_spacing / y_n)
 # theta /= t_n
 
 # Fill in chips that weren't detected
-h_pad, w_pad = int(h * 0.3), int(w * 0.3)
+h_pad, w_pad, n = int(h * 0.3), int(w * 0.3), 0
 while (color_grid == 255).any():
     for i in range(6):
         for j in range(4):
@@ -248,6 +257,10 @@ while (color_grid == 255).any():
                     chip_w, chip_h = w - 2 * w_pad, h - 2 * h_pad
                     color_chips.append([x, y, chip_w, chip_h])
                     add_chip(len(color_chips) - 1, i, j)
+                    n += 1
+print("Color chips reconstructed:\t", n)
+print("Median size of detected chips:\t x={}, y={}".format(w + pad2, h + pad2))
+check_length(color_chips)
 cv2.imshow('Confirm sample areas', img_display)
 cv2.waitKey(0)
 
@@ -269,7 +282,7 @@ if args.input_image[-4:] == '.png':
     color_info = np.power(color_info, args.gamma)
 
 # Write results
-print('Normalized color chip values:\ni  r        g        b')
+print("Normalized color values:\ni  r        g        b")
 writer = csv.writer(args.output_csv, lineterminator='\n')
 writer.writerow(' rgb')
 i = 0
