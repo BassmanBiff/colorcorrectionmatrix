@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 
 import argparse
+import colorutils as utils
 import numpy as np
-from PIL import Image
+import cv2
 
 
 def loadCCM(ccmCsvFile, illuminant):
@@ -15,10 +16,10 @@ def loadCCM(ccmCsvFile, illuminant):
 
     for i in range(len(lines)):
         if lines[i] == illuminant:
-            cells.append(lines[i + 1].split(','))
-            cells.append(lines[i + 2].split(','))
-            cells.append(lines[i + 3].split(','))
-            cells.append(lines[i + 4].split(','))
+            j = 1
+            while i + j < len(lines) and ',' in lines[i + j]:
+                cells.append(lines[j].split(','))
+                j += 1
             break
     else:
         raise ValueError('Illuminant not found in ccm: ' + illuminant)
@@ -33,74 +34,65 @@ def loadCCM(ccmCsvFile, illuminant):
     return np.asarray(data)
 
 
-def gamma_table(gamma_r, gamma_g, gamma_b, gain_r=1.0, gain_g=1.0, gain_b=1.0):
-    rng = range(256)
-    r_tbl = [min(255, int((x / 255.) ** gamma_r * gain_r * 255.)) for x in rng]
-    g_tbl = [min(255, int((x / 255.) ** gamma_g * gain_g * 255.)) for x in rng]
-    b_tbl = [min(255, int((x / 255.) ** gamma_b * gain_b * 255.)) for x in rng]
-    return r_tbl + g_tbl + b_tbl
-
-
-def applyGamma(img, gamma=2.2):
-    inv_gamma = 1. / gamma
-    return img.point(gamma_table(inv_gamma, inv_gamma, inv_gamma))
-
-
-def deGamma(img, gamma=2.2):
-    return img.point(gamma_table(gamma, gamma, gamma))
-
-
-def sRGB2XYZ(img, illuminant):
-    if illuminant == 'D50':
-        rgb2xyz = (0.4360747, 0.3850649, 0.1430804, 0,
-                   0.2225045, 0.7168786, 0.0606169, 0,
-                   0.0139322, 0.0971045, 0.7141733, 0)
-    elif illuminant == 'D65':
-        rgb2xyz = (0.412391, 0.357584, 0.180481, 0,
-                   0.212639, 0.715169, 0.072192, 0,
-                   0.019331, 0.119195, 0.950532, 0)
-    else:
-        raise ValueError('Invalid illuminant: ' + illuminant)
-    return img.convert("RGB", rgb2xyz)
-
-
-def XYZ2sRGB(img, illuminant):
-    if illuminant == 'D50':
-        xyz2rgb = (3.1338561, -1.6168667, -0.4906146, 0,
-                   -0.9787684, 1.9161415,  0.0334540, 0,
-                   0.0719453, -0.2289914,  1.4052427, 0)
-    elif illuminant == 'D65':
-        xyz2rgb = (3.240970, -1.537383, -0.498611, 0,
-                   -0.969244, 1.875968,  0.041555, 0,
-                   0.055630, -0.203977,  1.056972, 0)
-    else:
-        raise ValueError('Invalid illuminant: ' + illuminant)
-    return img.convert("RGB", xyz2rgb)
-
-
-def correctColor(img, ccm):
-    return img.convert("RGB", tuple(ccm.transpose().flatten()))
-
-
 if __name__ == '__main__':
+    # Input arguments
     parser = argparse.ArgumentParser()
     parser.add_argument('ccm', action='store', type=argparse.FileType('r'))
     parser.add_argument('input', action='store')
-    parser.add_argument('output', action='store')
+    parser.add_argument('output', action='store', default=None)
     parser.add_argument(
-        '-g', '--gamma',  action='store', type=float, default=2.2,
-        help='Gamma value of reference and source data. (Default=2.2)')
+        '-g', '--gamma',  action='store', type=float, default=1.0,
+        help='Gamma value of source img, default=1')
     parser.add_argument(
         '-i', '--illuminant', action='store', type=str, default='D65',
         help='Illuminant, D50 or D65 (default D65)')
     args = parser.parse_args()
-    gamma = args.gamma
+    args.output = args.output or args.input[:-4] + "_corrected.png"
 
+    # Load image (16-bit RGB)
     ccm = loadCCM(args.ccm, args.illuminant)
-    input_img = Image.open(args.input, 'r').convert("RGB")
-    input_img = deGamma(input_img, gamma=gamma)
-    input_img = sRGB2XYZ(input_img, args.illuminant)
-    input_img = correctColor(input_img, ccm)
-    input_img = XYZ2sRGB(input_img, args.illuminant)
-    input_img = applyGamma(input_img, gamma=gamma)
-    input_img.save(args.output)
+    img = utils.load_image(args.input)
+    cv2.imshow("Input", cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
+    cv2.waitKey(0)
+
+    # Normalize (range 0 - 1)
+    img = np.divide(img, 65535, dtype=np.float64)
+    # print("input", img.max(), img.min())
+
+    # Linearize (degamma)
+    img = np.power(img, args.gamma)
+    # print("degamma", img.max(), img.min())
+
+    # Convert to XYZ
+    M = np.array([
+        [0.4124564, 0.3575761, 0.1804375],
+        [0.2126729, 0.7151522, 0.0721750],
+        [0.0193339, 0.1191920, 0.9503041]])
+    img = utils.applyMatrix(img, M)
+    # print("xyz", img.max(), img.min())
+
+    # Apply CCM
+    img = utils.applyMatrix(img, ccm)
+    # print("corrected", img.max(), img.min())
+
+    # Convert to sRGB
+    img = utils.applyMatrix(img, np.linalg.inv(M))
+    # print("sRGB", img.max(), img.min())
+
+    # Reapply gamma
+    img[img < 0] = 0
+    img = np.power(img, 1/args.gamma)
+    # print("gamma", img.max(), img.min())
+
+    # Convert to 16-bit
+    img = np.uint16(img * 65535)
+
+    # # TESTING
+    # img = cv2.cvtColor(img, cv2.COLOR_XYZ2RGB)
+    # print("rgb", img.max()/65535, img.min()/65535)
+
+    # Save and display
+    img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+    cv2.imwrite(args.output, img)
+    cv2.imshow("Corrected", img)
+    cv2.waitKey(0)

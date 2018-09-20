@@ -6,15 +6,11 @@
 # TODO: Try template matching to find grid?
 
 import argparse
+import colorutils as utils
 import csv
 import cv2
 import numpy as np
-import rawpy
 import sys
-
-
-def to_uint8(img):
-    return (img >> 8).astype(np.uint8)
 
 
 def check_length(array):
@@ -32,75 +28,43 @@ parser.add_argument(
 parser.add_argument(
     'output_csv', type=argparse.FileType('w'), default='colorchart.csv')
 parser.add_argument(
-    '-g', '--gamma', type=float, default=2.2,
-    help='gamma value for linearization, not applied to raw images')
+    '-g', '--gamma', type=float, default=1.0,
+    help='gamma value of input image')
 parser.add_argument(
     '-x', type=int,
     help='expected width of color chips, in pixels')
 parser.add_argument(
     '-y', type=int,     # Should be -h and -w, but -h is taken by "help" :(
     help='expected height of color chips, in pixels')
+parser.add_argument(
+    '-v', '--verbose', action="store_true", default=False,
+    help='verbose output')
 args = parser.parse_args()
 
-# Load image
-if args.input_image[-4:] == '.png':     # png with degamma
-    img = cv2.imread(args.input_image)
-    img = np.uint8(np.power(img/255, args.gamma) * 255)
-elif args.input_image[-4:] == '.dng':   # dng with sane defaults
-    raw = rawpy.imread(args.input_image)
-    img = raw.postprocess(
-        demosaic_algorithm=rawpy.DemosaicAlgorithm.LINEAR,
-        half_size=False,
-        four_color_rgb=False,
-        fbdd_noise_reduction=rawpy.FBDDNoiseReductionMode.Off,
-        noise_thr=None,
-        median_filter_passes=0,
-        use_camera_wb=False,
-        use_auto_wb=False,
-        user_wb=None,
-        output_color=rawpy.ColorSpace.raw,
-        output_bps=16,
-        user_flip=None,
-        user_black=None,
-        user_sat=None,
-        no_auto_bright=True,
-        auto_bright_thr=None,
-        adjust_maximum_thr=0.75,
-        bright=1.0,
-        highlight_mode=rawpy.HighlightMode.Clip,
-        exp_shift=None,
-        exp_preserve_highlights=0.0,
-        no_auto_scale=True,
-        gamma=(1, 1),
-        chromatic_aberration=None,
-        bad_pixels_path=None)
+# Load image (16-bit RGB)
+img = utils.load_image(args.input_image)
 
-# Calculate rescaling factor for display only
-f_scale = min(1, 1024 / np.max(img.shape))
+# Make copy for display (8-bit BGR)
+scale = min(1, 1024 / np.max(img.shape))
+img_display = np.uint8(img >> 8)
+img_display = cv2.resize(img_display, (0, 0), fx=scale, fy=scale)
+img_display = cv2.cvtColor(img_display, cv2.COLOR_RGB2BGR)
+utils.imshow('Input', img_display)
 
-# Handle 10-bit images (keep precision from original image)
-if img.dtype == np.uint16:
-    img = img << 6  # 10-bit to 16-bit
-    img_display = to_uint8(cv2.resize(img, (0, 0), fx=f_scale, fy=f_scale))
-    img_edges = to_uint8(cv2.cvtColor(img, cv2.COLOR_RGB2GRAY))
-else:
-    img_display = cv2.resize(img, (0, 0), fx=f_scale, fy=f_scale)
-    img_edges = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+# Degamma
+img = utils.deGamma(img, args.gamma)
 
-# cv2.imshow('Input', img_display)
-# cv2.waitKey(0)
-
-# Find gradients
-median, sigma = np.median(img_edges), 0.33      # Tune sigma if needed
+# Find edges
+img_edges = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+img_edges = np.uint8(img >> 8)              # Must be 8-bit for Canny
+median, sigma = np.median(img_edges), 0.33  # Tune sigma if needed
 img_edges = cv2.Canny(
     img_edges,
     int(max(0, (1.0 - sigma) * median)),
     int(min(255, (1.0 + sigma) * median)))
 img_edges, contours, hierarchy = cv2.findContours(
     img_edges, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-
-# cv2.imshow('Edges', cv2.resize(img_edges, (0, 0), fx=f_scale, fy=f_scale))
-# cv2.waitKey(0)
+# utils.imshow('Edges', img_edges, scale)
 
 # Find color chips
 color_chips = []    # Format: [top-left x, top-left y, width, height]
@@ -119,7 +83,7 @@ for i in range(len(contours)):
                 [r[0] + pad, r[1] + pad, r[2] - pad2, r[3] - pad2])
 check_length(color_chips)
 
-# Remove false positives
+# Remove false positive color chips
 color_array = np.array(color_chips)
 h = int(np.median(color_array[:, 3]))
 w = int(np.median(color_array[:, 2]))
@@ -153,7 +117,7 @@ def add_chip(chip_i, grid_i, grid_j):
               ".".format(grid_j, grid_i, color_grid[grid_j, grid_i], chip_i))
         sys.exit(2)
     color_grid[grid_j, grid_i] = chip_i                     # add to grid
-    chip = [int(x * f_scale) for x in color_chips[chip_i]]  # scale for display
+    chip = [int(v * scale) for v in color_chips[chip_i]]    # scale for display
     cv2.rectangle(                                          # add to display
         img_display,
         (chip[0], chip[1]),
@@ -221,7 +185,7 @@ x_spacing = int(x_spacing / x_n)
 y_spacing = int(y_spacing / y_n)
 # theta /= t_n
 
-# Fill in chips that weren't detected
+# Reconstruct chips that weren't detected
 h_pad, w_pad, n = int(h * 0.3), int(w * 0.3), 0
 while (color_grid == 255).any():
     for i in range(6):
@@ -265,28 +229,25 @@ while (color_grid == 255).any():
 print("Color chips reconstructed:\t", n)
 print("Median size of detected chips:\t x={}, y={}".format(w + pad2, h + pad2))
 check_length(color_chips)
-cv2.imshow('Confirm sample areas', img_display)
-cv2.waitKey(0)
+utils.imshow('Confirm sample areas', img_display)
 
-# Get color info
+# Get normalized color info (range 0 - 1)
 color_info = np.zeros((4, 6, 3))
-if img.dtype == np.uint8:
-    f = 255.0
-elif img.dtype == np.uint16:
-    f = 65535.0
 for i in range(6):
     for j in range(4):
         x, y, w, h, = color_chips[color_grid[j, i]]
         for k in range(3):
-            color_info[j, i, k] = img[y:y + h, x:x + w, 2 - k].mean() / f
+            color_info[j, i, k] = img[y:y + h, x:x + w, k].mean() / 65535
 
 # Write results
-print("Normalized color values:\ni  r        g        b")
+if args.verbose:
+    print("Normalized color values:\ni  r        g        b")
 writer = csv.writer(args.output_csv, lineterminator='\n')
 writer.writerow(' rgb')
 i = 0
 for row in color_info:
     for col in row:
-        print('{}, {:.5}, {:.5}, {:.5}'.format(i, *col))
+        if args.verbose:
+            print('{}, {:.5}, {:.5}, {:.5}'.format(i, *col))
         writer.writerow([i, *col])
         i += 1

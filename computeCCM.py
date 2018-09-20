@@ -2,8 +2,10 @@
 # -*- coding: utf-8 -*-
 
 import argparse
+import colorutils as utils
 import csv
 import numpy as np
+# from scipy.optimize import fmin
 
 
 def load_colorchart_csv(f):
@@ -15,28 +17,18 @@ def load_colorchart_csv(f):
     return data
 
 
-def conv_sRGB2XYZ(rgb, illuminant):
-    if illuminant == 'D50':
-        M = np.array([[0.4360747, 0.3850649, 0.1430804],
-                      [0.2225045, 0.7168786, 0.0606169],
-                      [0.0139322, 0.0971045, 0.7141733]])
-    elif illuminant == 'D65':
-        M = np.array([[0.412391, 0.357584, 0.180481],
-                      [0.212639, 0.715169, 0.072192],
-                      [0.019331, 0.119195, 0.950532]])
-    else:
-        raise ValueError('Invalid illuminant: {}'.format(illuminant))
-    return np.dot(M, rgb.T).T
-
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('reference_csv', type=argparse.FileType('r'))
     parser.add_argument('source_csv', type=argparse.FileType('r'))
-    parser.add_argument('output_csv', type=argparse.FileType('w'),
-                        default='ccm.csv')
-    parser.add_argument('-g', '--gamma', type=float, default=1.0,
-                        help='Gamma value of reference and source data.')
+    parser.add_argument(
+        'output_csv', type=argparse.FileType('w'), default='ccm.csv')
+    parser.add_argument(
+        '-g', '--gamma', type=float, default=1.0,
+        help='Gamma value of reference and source data.')
+    parser.add_argument(
+        '-i', '--illuminant', type=str, default='D65',
+        help='Illuminant of source and reference images.')
     args = parser.parse_args()
     gamma = args.gamma
 
@@ -48,19 +40,24 @@ if __name__ == '__main__':
     reference_linear = np.power(reference_raw, gamma)
     source_linear = np.power(source_raw, gamma)
 
+    # XYZ
+    reference_xyz = utils.sRGB2XYZ(reference_linear, args.illuminant)
+    source_xyz = utils.sRGB2XYZ(source_linear, args.illuminant)
+
+    # Original method, gave 4x3 matrix
+    # source_xyz * ccm == reference_xyz
+    # (24, 3 + 1) * (4, 3) = (24 * 3)
+    # source_xyz = np.append(source_xyz, np.ones((24, 1)), axis=1)
+    # ccm = np.linalg.pinv(source_xyz).dot(reference_xyz)
+
+    ccm, res, rank, s, = np.linalg.lstsq(source_xyz, reference_xyz, rcond=None)
+
+    # Test
+    before = ((reference_xyz - source_xyz) ** 2).sum()
+    print("Residuals --- before: {}, after: {}".format(before, res.sum()))
+
+    # Write out
+    print('CCM at {}:\n'.format(args.illuminant), ccm)
     writer = csv.writer(args.output_csv, lineterminator='\n')
-    for illuminant in ('D50', 'D65'):
-        # XYZ
-        reference_xyz = conv_sRGB2XYZ(reference_linear, illuminant)
-        source_xyz = conv_sRGB2XYZ(source_linear, illuminant)
-
-        # Solve
-        # source_xyz * ccm == reference_xyz
-        # (24, 3 + 1) * (4, 3) = (24 * 3)
-        source_xyz_hm = np.append(source_xyz, np.ones((24, 1)), axis=1)
-        ccm = np.linalg.pinv(source_xyz_hm).dot(reference_xyz)
-
-        # Write out
-        print('CCM at {}:\n'.format(illuminant), ccm)
-        writer.writerow([illuminant])
-        writer.writerows(ccm)
+    writer.writerow([args.illuminant])
+    writer.writerows(ccm)
