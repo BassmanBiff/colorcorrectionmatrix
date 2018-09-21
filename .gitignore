@@ -1,2 +1,6 @@
+__pycache__
 cpp/build/*
 dng
+img
+data
+test*
