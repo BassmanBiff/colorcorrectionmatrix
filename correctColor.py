@@ -55,7 +55,7 @@ if __name__ == '__main__':
     ccm = load_ccm(args.ccm, args.illuminant)
     img = utils.imread(args.input)
     scale = min(1024 / max(img.shape), 1)
-    utils.imshow("Input", utils.RGB2BGR(img), scale)  # Need BGR for display
+    utils.imshow("Input", utils.rgb2bgr(img), scale)  # Need BGR for display
 
     # Process image
     print("\nProcessing step  Max px\t\tMin px")
@@ -66,11 +66,11 @@ if __name__ == '__main__':
         print("Degamma\t\t", img.max(), img.min())
     else:
         print("Degamma\t\t skipped (gamma == 1)")
-    img = utils.RGB2XYZ(img, args.illuminant)       # Convert to XYZ
+    img = utils.rgb2xyz(img, args.illuminant)       # Convert to XYZ
     print("XYZ\t\t", img.max(), img.min())
     img = img.dot(ccm)                              # Apply CCM
     print("Corrected\t", img.max(), img.min())
-    img = utils.XYZ2RGB(img, args.illuminant)       # Convert to RGB
+    img = utils.xyz2rgb(img, args.illuminant)       # Convert to RGB
     print("RGB\t\t", img.max(), img.min())
     if img.min() < 0:                               # Fix values < 0
         # img -= img.min()
@@ -97,7 +97,7 @@ if __name__ == '__main__':
     white_balance /= white_balance.max()
     print("\nWhite balance (R, G, B): {}".format(white_balance))
     print("Black level: {}".format(black_level))
-    img = np.uint16(utils.BGR2RGB(img) * 65535)     # 16-bit BGR for OpenCV
+    img = np.uint16(utils.bgr2rgb(img) * 65535)     # 16-bit BGR for OpenCV
     utils.imwrite(args.output, img)                 # Save
     print("\nSaved corrected image as " + args.output)
     utils.imshow("Corrected", img, scale)           # Display

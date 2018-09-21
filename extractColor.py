@@ -71,7 +71,7 @@ img = utils.imread(args.input_image)
 scale = min(1, 1024 / np.max(img.shape))
 img_display = np.uint8(img >> 8)
 img_display = cv2.resize(img_display, (0, 0), fx=scale, fy=scale)
-img_display = utils.RGB2BGR(img)
+img_display = utils.rgb2bgr(img)
 utils.imshow('Input', img_display)
 
 # Degamma

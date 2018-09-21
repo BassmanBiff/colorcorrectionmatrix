@@ -12,7 +12,7 @@ def imread(filename, gamma=1):
     '''Load image as 16-bit RGB (OpenCV default is BGR)'''
     if filename[-4:] == '.png':         # png
         img = np.uint16(cv2.imread(filename)) << 8  # Load, convert to 16-bit
-        img = BGR2RGB(img)                          # BGR -> RGB
+        img = bgr2rgb(img)                          # BGR -> RGB
     elif filename[-4:] == '.dng':       # dng with demosaicing
         raw = rawpy.imread(filename)
         img = raw.postprocess(
@@ -61,15 +61,15 @@ def imwrite(filename, img):
 
 
 # Color conversions
-def BGR2RGB(bgr):
+def bgr2rgb(bgr):
     return bgr[..., ::-1]
 
 
-def RGB2BGR(rgb):
+def rgb2bgr(rgb):
     return rgb[..., ::-1]
 
 
-def RGB2XYZ(rgb, illuminant):
+def rgb2xyz(rgb, illuminant):
     ''' Convert RGB color space to XYZ
         Image must be linear (no gamma) and normalized (range 0 - 1) '''
     if illuminant == 'D50':
@@ -85,7 +85,7 @@ def RGB2XYZ(rgb, illuminant):
     return np.dot(rgb, M)
 
 
-def XYZ2RGB(xyz, illuminant):
+def xyz2rgb(xyz, illuminant):
     ''' Convert XYZ color space to RGB
         Image must be linear (no gamma) and normalized (range 0 - 1) '''
     if illuminant == 'D50':
