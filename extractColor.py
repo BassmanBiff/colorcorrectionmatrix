@@ -13,7 +13,30 @@ import numpy as np
 import sys
 
 
+# Color grid (6 x 4): maps color chip indices to grid positions
+color_grid = np.full((4, 6), 255, np.uint8)
+
+
+def add_chip(chip_i, grid_i, grid_j):
+    ''' Add color chip to color_grid and outline it for display '''
+    # Catch attempt to assign the same spot on the grid twice
+    if color_grid[grid_j, grid_i] != 255:
+        print("Error: Attempted to reassign color_grid[{}, {}] from {} to {}"
+              ".".format(grid_j, grid_i, color_grid[grid_j, grid_i], chip_i))
+        sys.exit(2)
+
+    color_grid[grid_j, grid_i] = chip_i                     # add to grid
+    chip = [int(v * scale) for v in color_chips[chip_i]]    # scale for display
+    cv2.rectangle(                                          # add to display
+        img_display,
+        (chip[0], chip[1]),
+        (chip[0] + chip[2], chip[1] + chip[3]),
+        (0, 0, 255),
+        1)
+
+
 def check_length(array):
+    '''Quit if too few or too many color chips detected'''
     length = len(array)
     if length < 12 or length > 24:
         print("Error: Found {} chips, can't construct color grid"
@@ -29,20 +52,20 @@ parser.add_argument(
     'output_csv', type=argparse.FileType('w'), default='colorchart.csv')
 parser.add_argument(
     '-g', '--gamma', type=float, default=1.0,
-    help='gamma value of input image')
+    help="gamma value of input image")
 parser.add_argument(
     '-x', type=int,
-    help='expected width of color chips, in pixels')
+    help="expected width of color chips, in pixels")
 parser.add_argument(
     '-y', type=int,     # Should be -h and -w, but -h is taken by "help" :(
-    help='expected height of color chips, in pixels')
+    help="expected height of color chips, in pixels")
 parser.add_argument(
     '-v', '--verbose', action="store_true", default=False,
-    help='verbose output')
+    help="verbose output")
 args = parser.parse_args()
 
 # Load image (16-bit RGB)
-img = utils.load_image(args.input_image)
+img = utils.imread(args.input_image)
 
 # Make copy for display (8-bit BGR)
 scale = min(1, 1024 / np.max(img.shape))
@@ -52,17 +75,17 @@ img_display = cv2.cvtColor(img_display, cv2.COLOR_RGB2BGR)
 utils.imshow('Input', img_display)
 
 # Degamma
-img = utils.deGamma(img, args.gamma)
+img = np.power(img, args.gamma)
 
 # Find edges
-img_edges = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
-img_edges = np.uint8(img >> 8)              # Must be 8-bit for Canny
-median, sigma = np.median(img_edges), 0.33  # Tune sigma if needed
-img_edges = cv2.Canny(
+img_edges = np.uint8(np.uint16(img) >> 8)                   # 8-bit (for Canny)
+img_edges = cv2.cvtColor(img_edges, cv2.COLOR_RGB2GRAY)     # Grayscale
+median, sigma = np.median(img_edges), 0.33                  # Thresholds
+img_edges = cv2.Canny(                                      # Gradients
     img_edges,
     int(max(0, (1.0 - sigma) * median)),
     int(min(255, (1.0 + sigma) * median)))
-img_edges, contours, hierarchy = cv2.findContours(
+img_edges, contours, hierarchy = cv2.findContours(          # Contours
     img_edges, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 # utils.imshow('Edges', img_edges, scale)
 
@@ -85,8 +108,7 @@ check_length(color_chips)
 
 # Remove false positive color chips
 color_array = np.array(color_chips)
-h = int(np.median(color_array[:, 3]))
-w = int(np.median(color_array[:, 2]))
+h, w = int(np.median(color_array[:, 3])), int(np.median(color_array[:, 2]))
 for i, chip in enumerate(color_chips):
     x, y, = chip[2:]
     if x < w * 0.9 or x > w * 1.1 or \
@@ -97,36 +119,18 @@ check_length(color_chips)
 print("Color chips found:\t\t", len(color_chips))
 
 # Find leftmost and top chips to define first column and row
+# HACK: Assumes we've found a chip in both the top row and first column
 left_i = top_i = 0
-left_x = top_y = 9E9    # Arbitrary large number
-for i in range(len(color_chips)):
+left_x, top_y = color_chips[0][:2]
+for i in range(1, len(color_chips)):
     x, y = color_chips[i][:2]
     if x < left_x:
         left_i, left_x = i, x
     if y < top_y:
         top_i, top_y = i, y
 
-# Assemble color grid
-color_grid = np.full((4, 6), 255, np.uint8)   # Known shape
-
-
-def add_chip(chip_i, grid_i, grid_j):
-    ''' Add a color chip to both the color grid data and display image '''
-    if color_grid[grid_j, grid_i] != 255:
-        print("Error: Attempted to reassign color_grid[{}, {}] from {} to {}"
-              ".".format(grid_j, grid_i, color_grid[grid_j, grid_i], chip_i))
-        sys.exit(2)
-    color_grid[grid_j, grid_i] = chip_i                     # add to grid
-    chip = [int(v * scale) for v in color_chips[chip_i]]    # scale for display
-    cv2.rectangle(                                          # add to display
-        img_display,
-        (chip[0], chip[1]),
-        (chip[0] + chip[2], chip[1] + chip[3]),
-        (0, 0, 255),
-        1)
-
-
 # Assign column and row to detected chips
+# TODO: This could be smarter
 for i in range(len(color_chips)):
     x, y, = color_chips[i][:2]
     # Assign column based x distance from leftmost detected chip
@@ -229,9 +233,9 @@ while (color_grid == 255).any():
 print("Color chips reconstructed:\t", n)
 print("Median size of detected chips:\t x={}, y={}".format(w + pad2, h + pad2))
 check_length(color_chips)
-utils.imshow('Confirm sample areas', img_display)
+utils.imshow("Confirm sample areas", img_display)
 
-# Get normalized color info (range 0 - 1)
+# Get normalized (range 0 - 1) color info from each chip
 color_info = np.zeros((4, 6, 3))
 for i in range(6):
     for j in range(4):

@@ -3,17 +3,14 @@
 import argparse
 import colorutils as utils
 import numpy as np
-import cv2
 
 
-def loadCCM(ccmCsvFile, illuminant):
-    csvData = ccmCsvFile.read()
+def load_ccm(ccm_csv, illuminant):
+    csvData = ccm_csv.read()
     lines = csvData.replace(' ', '').split('\n')
     del lines[len(lines) - 1]
 
-    data = list()
-    cells = list()
-
+    data, cells = list(), list()
     for i in range(len(lines)):
         if lines[i] == illuminant:
             j = 1
@@ -42,57 +39,40 @@ if __name__ == '__main__':
     parser.add_argument('output', action='store', default=None)
     parser.add_argument(
         '-g', '--gamma',  action='store', type=float, default=1.0,
-        help='Gamma value of source img, default=1')
+        help="Gamma value of source img, default=1")
     parser.add_argument(
         '-i', '--illuminant', action='store', type=str, default='D65',
-        help='Illuminant, D50 or D65 (default D65)')
+        help="Illuminant, D50 or D65 (default D65)")
     args = parser.parse_args()
     args.output = args.output or args.input[:-4] + "_corrected.png"
 
     # Load image (16-bit RGB)
-    ccm = loadCCM(args.ccm, args.illuminant)
-    img = utils.load_image(args.input)
-    cv2.imshow("Input", cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
-    cv2.waitKey(0)
+    ccm = load_ccm(args.ccm, args.illuminant)
+    img = utils.imread(args.input)
+    scale = min(1024 / max(img.shape), 1)
+    utils.imshow("Input", img[..., ::-1], scale)    # Need BGR for display
 
-    # Normalize (range 0 - 1)
-    img = np.divide(img, 65535, dtype=np.float64)
-    # print("input", img.max(), img.min())
-
-    # Linearize (degamma)
-    img = np.power(img, args.gamma)
-    # print("degamma", img.max(), img.min())
-
-    # Convert to XYZ
-    M = np.array([
-        [0.4124564, 0.3575761, 0.1804375],
-        [0.2126729, 0.7151522, 0.0721750],
-        [0.0193339, 0.1191920, 0.9503041]])
-    img = utils.applyMatrix(img, M)
-    # print("xyz", img.max(), img.min())
-
-    # Apply CCM
-    img = utils.applyMatrix(img, ccm)
-    # print("corrected", img.max(), img.min())
-
-    # Convert to sRGB
-    img = utils.applyMatrix(img, np.linalg.inv(M))
-    # print("sRGB", img.max(), img.min())
-
-    # Reapply gamma
-    img[img < 0] = 0
-    img = np.power(img, 1/args.gamma)
-    # print("gamma", img.max(), img.min())
-
-    # Convert to 16-bit
-    img = np.uint16(img * 65535)
-
-    # # TESTING
-    # img = cv2.cvtColor(img, cv2.COLOR_XYZ2RGB)
-    # print("rgb", img.max()/65535, img.min()/65535)
+    # Process image
+    img = np.divide(img, 65535, dtype=np.float64)   # Normalize (range 0 - 1)
+    print("input", img.max(), img.min())
+    img = np.power(img, args.gamma)                 # Linearize (degamma)
+    print("degamma", img.max(), img.min())
+    img = utils.RGB2XYZ(img, args.illuminant)       # Convert to XYZ
+    print("xyz", img.max(), img.min())
+    img = img.dot(ccm)                              # Apply CCM
+    print("corrected", img.max(), img.min())
+    img = utils.XYZ2RGB(img, args.illuminant)       # Convert to RGB
+    print("RGB", img.max(), img.min())
+    if img.min() < 0:                               # Fix values < 0
+        # img -= img.min()
+        img[img < 0] = 0
+    gamma = 2.2 if args.gamma == 1 else args.gamma  # Choose gamma correction
+    img = np.power(img, 1/gamma)                    # Apply gamma correction
+    print("gamma", img.max(), img.min())
+    img /= img.max()                                # Fix values > 1
+    print("rescaled", img.max(), img.min())
 
     # Save and display
-    img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
-    cv2.imwrite(args.output, img)
-    cv2.imshow("Corrected", img)
-    cv2.waitKey(0)
+    img = np.uint16(img[..., ::-1] * 65535)         # 16-bit BGR for OpenCV
+    utils.imwrite(args.output, img)                 # Save
+    utils.imshow("Corrected", img, scale)           # Display
