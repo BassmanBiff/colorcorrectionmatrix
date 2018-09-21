@@ -62,7 +62,7 @@ if __name__ == '__main__':
     # Load image (16-bit RGB)
     ccm = load_ccm(args.ccm, args.illuminant)
     img = utils.imread(args.input)
-    scale = min(1024 / max(img.shape), 1)
+    scale = utils.display_scale(img)
     utils.imshow("Input", utils.rgb2bgr(img), scale)  # Need BGR for display
 
     # Process image

@@ -51,7 +51,9 @@ def imread(filename, gamma=1):
 
 def imshow(title, img, scale=1):
     '''Display image with optional rescaling'''
-    cv2.imshow(title, cv2.resize(img, (0, 0), fx=scale, fy=scale))
+    if scale != 1:
+        img = cv2.resize(img, (0, 0), fx=scale, fy=scale)
+    cv2.imshow(title, img)
     cv2.waitKey(0)
 
 
@@ -63,10 +65,12 @@ def imwrite(filename, img):
 # Color conversions
 def bgr2rgb(bgr):
     return bgr[..., ::-1]
+    # return cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
 
 
 def rgb2bgr(rgb):
     return rgb[..., ::-1]
+    # return cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
 
 
 def rgb2xyz(rgb, illuminant):
@@ -99,6 +103,11 @@ def xyz2rgb(xyz, illuminant):
     else:
         raise ValueError("Invalid illuminant: {}".format(illuminant))
     return np.dot(xyz, M)
+
+
+# Misc
+def display_scale(img, size=1024):
+    return min(size / max(img.shape), 1)
 
 
 if __name__ == '__main__':

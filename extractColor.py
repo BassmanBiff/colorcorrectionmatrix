@@ -68,10 +68,9 @@ args = parser.parse_args()
 img = utils.imread(args.input_image)
 
 # Make copy for display (8-bit BGR)
-scale = min(1, 1024 / np.max(img.shape))
-img_display = np.uint8(img >> 8)
-img_display = cv2.resize(img_display, (0, 0), fx=scale, fy=scale)
-img_display = utils.rgb2bgr(img)
+scale = utils.display_scale(img)
+img_display = cv2.resize(img, (0, 0), fx=scale, fy=scale)
+img_display = cv2.cvtColor(np.uint8(img_display >> 8), cv2.COLOR_RGB2BGR)
 utils.imshow('Input', img_display)
 
 # Degamma

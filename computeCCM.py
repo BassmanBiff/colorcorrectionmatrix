@@ -14,7 +14,7 @@ def load_colorchart(filename):
 
     # Process and return data
     colors = np.power(colors, args.gamma)               # Degamma
-    colors = utils.RGB2XYZ(colors, args.illuminant)     # Convert to XYZ
+    colors = utils.rgb2xyz(colors, args.illuminant)     # Convert to XYZ
     return colors
 
 
@@ -51,7 +51,7 @@ if __name__ == '__main__':
 
     # Report residuals
     before = ((ref - src) ** 2).sum()
-    print("\nResiduals\nBefore: {}\nAfter: {}".format(before, res.sum()))
+    print("\nResiduals\nbefore: {}\nafter: {}".format(before, res.sum()))
 
     # Save result
     if args.verbose:
