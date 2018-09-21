@@ -33,6 +33,14 @@ def load_ccm(ccm_csv, illuminant):
     return np.asarray(data)
 
 
+def update(msg, img):
+    msg = "{:<18}".format(msg)
+    if isinstance(img, np.ndarray):
+        print(msg + "{:<24}{}".format(img.min(), img.max()))
+    else:
+        print(msg + "{}".format(img))
+
+
 if __name__ == '__main__':
     # Input arguments
     parser = argparse.ArgumentParser()
@@ -58,40 +66,41 @@ if __name__ == '__main__':
     utils.imshow("Input", utils.rgb2bgr(img), scale)  # Need BGR for display
 
     # Process image
-    print("\nProcessing step  Max px\t\tMin px")
+    print("\n{:<18}{:<24}{}".format("Processing step", "Min px", "Max px"))
     img = np.divide(img, 65535, dtype=np.float64)   # Normalize (range 0 - 1)
-    print("Original\t", img.max(), img.min())
+    update("original", img)
     if args.gamma != 1.0:
         img = np.power(img, args.gamma)             # Linearize (degamma)
-        print("Degamma\t\t", img.max(), img.min())
+        update("degamma", img)
     else:
-        print("Degamma\t\t skipped (gamma == 1)")
+        update("degamma", "skipped (gamma == 1)")
     img = utils.rgb2xyz(img, args.illuminant)       # Convert to XYZ
-    print("XYZ\t\t", img.max(), img.min())
-    img = img.dot(ccm)                              # Apply CCM
-    print("Corrected\t", img.max(), img.min())
+    update("xyz", img)
+    img = img.dot(ccm)                              # Color correction
+    update("color correction", img)
     img = utils.xyz2rgb(img, args.illuminant)       # Convert to RGB
-    print("RGB\t\t", img.max(), img.min())
+    update("rgb", img)
     if img.min() < 0:                               # Fix values < 0
         # img -= img.min()
         img[img < 0] = 0
     gamma = 2.2 if args.gamma == 1 else args.gamma  # Choose gamma correction
     img = np.power(img, 1/gamma)                    # Apply gamma correction
-    print("Gamma\t\t", img.max(), img.min())
-    white_balance = np.empty(3, dtype=np.float64)   # White balance + black lvl
+    update("gamma", img)
+    white_balance = np.empty(3, dtype=np.float64)   # Calculate white/black
     black_balance = np.empty(3, dtype=np.float64)
     for i in range(3):
-        white_balance[i] = img[:, :, i].max()
-        black_balance[i] = img[:, :, i].min()
+        channel = img[:, :, i]
+        white_balance[i] = channel.max()
+        black_balance[i] = channel.min()
     white_level = white_balance.min()
     img[img > white_level] = white_level            # Apply white balance
-    print("White balance\t", img.max(), img.min())
+    update("white balance", img)
     black_level = black_balance.max()
     img -= black_level                              # Apply black level
-    print("Black level\t", img.max(), img.min())
+    update("black level", img)
     img[img < 0] = 0                                # Renormalize (0 - 1)
     img /= img.max()
-    print("Renormed\t", img.max(), img.min())
+    update("renormed", img)
 
     # Save and display
     white_balance /= white_balance.max()
