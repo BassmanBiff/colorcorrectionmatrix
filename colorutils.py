@@ -1,3 +1,6 @@
+# TODO: Calculate colorspace conversions, don't use plug-and-play
+# TODO: Full gamma correction (not simplified version)
+
 import cv2
 import exifread as exif
 import numpy as np
@@ -9,7 +12,7 @@ def imread(filename, gamma=1):
     '''Load image as 16-bit RGB (OpenCV default is BGR)'''
     if filename[-4:] == '.png':         # png
         img = np.uint16(cv2.imread(filename)) << 8  # Load, convert to 16-bit
-        img = img[..., ::-1]                        # BGR -> RGB
+        img = BGR2RGB(img)                          # BGR -> RGB
     elif filename[-4:] == '.dng':       # dng with demosaicing
         raw = rawpy.imread(filename)
         img = raw.postprocess(
@@ -58,9 +61,17 @@ def imwrite(filename, img):
 
 
 # Color conversions
-# Image must be linear (no gamma) and normalized (range 0 - 1)
+def BGR2RGB(bgr):
+    return bgr[..., ::-1]
+
+
+def RGB2BGR(rgb):
+    return rgb[..., ::-1]
+
+
 def RGB2XYZ(rgb, illuminant):
-    '''Convert RGB color space to XYZ'''
+    ''' Convert RGB color space to XYZ
+        Image must be linear (no gamma) and normalized (range 0 - 1) '''
     if illuminant == 'D50':
         M = np.array([[0.4360747, 0.3850649, 0.1430804],
                       [0.2225045, 0.7168786, 0.0606169],
@@ -75,7 +86,8 @@ def RGB2XYZ(rgb, illuminant):
 
 
 def XYZ2RGB(xyz, illuminant):
-    '''Convert XYZ color space to RGB'''
+    ''' Convert XYZ color space to RGB
+        Image must be linear (no gamma) and normalized (range 0 - 1) '''
     if illuminant == 'D50':
         M = np.array([[3.1338561, -1.6168667, -0.4906146],
                       [-0.9787684, 1.9161415,  0.0334540],

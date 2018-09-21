@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+# TODO: Verify handling of px values < 0, > 1
+
 import argparse
 import colorutils as utils
 import numpy as np
@@ -34,9 +36,12 @@ def load_ccm(ccm_csv, illuminant):
 if __name__ == '__main__':
     # Input arguments
     parser = argparse.ArgumentParser()
-    parser.add_argument('ccm', action='store', type=argparse.FileType('r'))
-    parser.add_argument('input', action='store')
-    parser.add_argument('output', action='store', default=None)
+    parser.add_argument(
+        'ccm', action='store', type=argparse.FileType('r'))
+    parser.add_argument(
+        'input', action='store', type=str)
+    parser.add_argument(
+        'output', action='store', type=str, default=None)
     parser.add_argument(
         '-g', '--gamma',  action='store', type=float, default=1.0,
         help="Gamma value of source img, default=1")
@@ -50,29 +55,34 @@ if __name__ == '__main__':
     ccm = load_ccm(args.ccm, args.illuminant)
     img = utils.imread(args.input)
     scale = min(1024 / max(img.shape), 1)
-    utils.imshow("Input", img[..., ::-1], scale)    # Need BGR for display
+    utils.imshow("Input", utils.RGB2BGR(img), scale)  # Need BGR for display
 
     # Process image
+    print("\nProcessing step  Max px\t\tMin px")
     img = np.divide(img, 65535, dtype=np.float64)   # Normalize (range 0 - 1)
-    print("input", img.max(), img.min())
-    img = np.power(img, args.gamma)                 # Linearize (degamma)
-    print("degamma", img.max(), img.min())
+    print("Original\t", img.max(), img.min())
+    if args.gamma != 1.0:
+        img = np.power(img, args.gamma)             # Linearize (degamma)
+        print("Degamma\t\t", img.max(), img.min())
+    else:
+        print("Degamma\t\t skipped, gamma == 1")
     img = utils.RGB2XYZ(img, args.illuminant)       # Convert to XYZ
-    print("xyz", img.max(), img.min())
+    print("XYZ\t\t", img.max(), img.min())
     img = img.dot(ccm)                              # Apply CCM
-    print("corrected", img.max(), img.min())
+    print("Corrected\t", img.max(), img.min())
     img = utils.XYZ2RGB(img, args.illuminant)       # Convert to RGB
-    print("RGB", img.max(), img.min())
+    print("RGB\t\t", img.max(), img.min())
     if img.min() < 0:                               # Fix values < 0
         # img -= img.min()
         img[img < 0] = 0
     gamma = 2.2 if args.gamma == 1 else args.gamma  # Choose gamma correction
     img = np.power(img, 1/gamma)                    # Apply gamma correction
-    print("gamma", img.max(), img.min())
+    print("Gamma\t\t", img.max(), img.min())
     img /= img.max()                                # Fix values > 1
-    print("rescaled", img.max(), img.min())
+    print("Renormed\t", img.max(), img.min())
 
     # Save and display
-    img = np.uint16(img[..., ::-1] * 65535)         # 16-bit BGR for OpenCV
+    img = np.uint16(utils.BGR2RGB(img) * 65535)     # 16-bit BGR for OpenCV
     utils.imwrite(args.output, img)                 # Save
+    print("\nSaved corrected image as " + args.output)
     utils.imshow("Corrected", img, scale)           # Display

@@ -71,7 +71,7 @@ img = utils.imread(args.input_image)
 scale = min(1, 1024 / np.max(img.shape))
 img_display = np.uint8(img >> 8)
 img_display = cv2.resize(img_display, (0, 0), fx=scale, fy=scale)
-img_display = cv2.cvtColor(img_display, cv2.COLOR_RGB2BGR)
+img_display = utils.RGB2BGR(img)
 utils.imshow('Input', img_display)
 
 # Degamma
@@ -116,7 +116,7 @@ for i, chip in enumerate(color_chips):
         color_chips[i] = 0
 color_chips = [chip for chip in color_chips if chip != 0]
 check_length(color_chips)
-print("Color chips found:\t\t", len(color_chips))
+print("\nColor chips found:\t\t", len(color_chips))
 
 # Find leftmost and top chips to define first column and row
 # HACK: Assumes we've found a chip in both the top row and first column
@@ -255,3 +255,4 @@ for row in color_info:
             print('{}, {:.5}, {:.5}, {:.5}'.format(i, *col))
         writer.writerow([i, *col])
         i += 1
+print("\nSaved color chart as " + args.output_csv.name)

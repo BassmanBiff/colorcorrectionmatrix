@@ -6,10 +6,10 @@ import numpy as np
 from csv import writer as csvwriter
 
 
-def load_colorchart(f):
+def load_colorchart(filename):
     '''Load color chart as linearized XYZ'''
     # Load data
-    colors = np.loadtxt(f, delimiter=',', skiprows=1, usecols=(1, 2, 3))
+    colors = np.loadtxt(filename, delimiter=',', skiprows=1, usecols=(1, 2, 3))
     assert colors.shape == (24, 3)
 
     # Process and return data
@@ -20,8 +20,10 @@ def load_colorchart(f):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('reference_csv', type=argparse.FileType('r'))
-    parser.add_argument('source_csv', type=argparse.FileType('r'))
+    parser.add_argument(
+        'reference_csv', type=argparse.FileType('r'))
+    parser.add_argument(
+        'source_csv', type=argparse.FileType('r'))
     parser.add_argument(
         'output_csv', type=argparse.FileType('w'), default='ccm.csv')
     parser.add_argument(
@@ -30,6 +32,9 @@ if __name__ == '__main__':
     parser.add_argument(
         '-i', '--illuminant', type=str, default='D65',
         help="lluminant of source and reference images.")
+    parser.add_argument(
+        '-v', '--verbose', action="store_true", default=False,
+        help="verbose output")
     args = parser.parse_args()
 
     # Load color charts as XYZ
@@ -46,10 +51,12 @@ if __name__ == '__main__':
 
     # Report residuals
     before = ((ref - src) ** 2).sum()
-    print("Residuals --- before: {}, after: {}".format(before, res.sum()))
+    print("\nResiduals\nBefore: {}\nAfter: {}".format(before, res.sum()))
 
     # Save result
-    print("CCM for {} illuminant:\n".format(args.illuminant), ccm)
+    if args.verbose:
+        print("CCM for {} illuminant:\n".format(args.illuminant), ccm)
     writer = csvwriter(args.output_csv, lineterminator='\n')
     writer.writerow([args.illuminant])
     writer.writerows(ccm)
+    print("\nSaved color correction matrix as " + args.output_csv.name)
