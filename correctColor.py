@@ -49,7 +49,7 @@ if __name__ == '__main__':
     parser.add_argument(
         'input', action='store', type=str)
     parser.add_argument(
-        'output', action='store', type=str, default=None)
+        'output', action='store', type=str, nargs='?', default=None)
     parser.add_argument(
         '-g', '--gamma',  action='store', type=float, default=1.0,
         help="Gamma value of source img, default=1")
@@ -57,7 +57,6 @@ if __name__ == '__main__':
         '-i', '--illuminant', action='store', type=str, default='D65',
         help="Illuminant, D50 or D65 (default D65)")
     args = parser.parse_args()
-    args.output = args.output or args.input[:-4] + "_corrected.png"
 
     # Load image (16-bit RGB)
     ccm = load_ccm(args.ccm, args.illuminant)
@@ -107,6 +106,7 @@ if __name__ == '__main__':
     print("\nWhite balance (R, G, B): {}".format(white_balance))
     print("Black level: {}".format(black_level))
     img = np.uint16(utils.bgr2rgb(img) * 65535)     # 16-bit BGR for OpenCV
-    utils.imwrite(args.output, img)                 # Save
-    print("\nSaved corrected image as " + args.output)
+    if args.output:                                 # Save
+        utils.imwrite(args.output, img)
+        print("\nSaved corrected image as " + args.output)
     utils.imshow("Corrected", img, scale)           # Display

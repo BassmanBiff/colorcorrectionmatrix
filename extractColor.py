@@ -31,8 +31,7 @@ def add_chip(chip_i, grid_i, grid_j):
         img_display,
         (chip[0], chip[1]),
         (chip[0] + chip[2], chip[1] + chip[3]),
-        (0, 0, 255),
-        1)
+        (0, 0, 255))
 
 
 def check_length(array):
@@ -73,11 +72,12 @@ img_display = cv2.resize(img, (0, 0), fx=scale, fy=scale)
 img_display = cv2.cvtColor(np.uint8(img_display >> 8), cv2.COLOR_RGB2BGR)
 utils.imshow('Input', img_display)
 
-# Degamma
-img = np.power(img, args.gamma)
+# Normalize and degamma
+img = np.power(img/65535, args.gamma, dtype=np.float64)
+print(img.max(), img.min())
 
 # Find edges
-img_edges = np.uint8(np.uint16(img) >> 8)                   # 8-bit (for Canny)
+img_edges = np.uint8(img * 255)                   # 8-bit (for Canny)
 img_edges = cv2.cvtColor(img_edges, cv2.COLOR_RGB2GRAY)     # Grayscale
 median, sigma = np.median(img_edges), 0.33                  # Thresholds
 img_edges = cv2.Canny(                                      # Gradients
@@ -240,7 +240,7 @@ for i in range(6):
     for j in range(4):
         x, y, w, h, = color_chips[color_grid[j, i]]
         for k in range(3):
-            color_info[j, i, k] = img[y:y + h, x:x + w, k].mean() / 65535
+            color_info[j, i, k] = img[y:y + h, x:x + w, k].mean()
 
 # Write results
 if args.verbose:
