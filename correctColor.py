@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# TODO: Verify handling of px values < 0, > 1
+# TODO: Verify renormalization; use original max/min?
 
 import argparse
 import colorutils as utils
@@ -65,7 +65,7 @@ if __name__ == '__main__':
         img = np.power(img, args.gamma)             # Linearize (degamma)
         print("Degamma\t\t", img.max(), img.min())
     else:
-        print("Degamma\t\t skipped, gamma == 1")
+        print("Degamma\t\t skipped (gamma == 1)")
     img = utils.RGB2XYZ(img, args.illuminant)       # Convert to XYZ
     print("XYZ\t\t", img.max(), img.min())
     img = img.dot(ccm)                              # Apply CCM
@@ -78,10 +78,25 @@ if __name__ == '__main__':
     gamma = 2.2 if args.gamma == 1 else args.gamma  # Choose gamma correction
     img = np.power(img, 1/gamma)                    # Apply gamma correction
     print("Gamma\t\t", img.max(), img.min())
-    img /= img.max()                                # Fix values > 1
+    white_balance = np.empty(3, dtype=np.float64)   # White balance + black lvl
+    black_balance = np.empty(3, dtype=np.float64)
+    for i in range(3):
+        white_balance[i] = img[:, :, i].max()
+        black_balance[i] = img[:, :, i].min()
+    white_level = white_balance.min()
+    img[img > white_level] = white_level            # Apply white balance
+    print("White balance\t", img.max(), img.min())
+    black_level = black_balance.max()
+    img -= black_level                              # Apply black level
+    print("Black level\t", img.max(), img.min())
+    img[img < 0] = 0                                # Renormalize (0 - 1)
+    img /= img.max()
     print("Renormed\t", img.max(), img.min())
 
     # Save and display
+    white_balance /= white_balance.max()
+    print("\nWhite balance (R, G, B): {}".format(white_balance))
+    print("Black level: {}".format(black_level))
     img = np.uint16(utils.BGR2RGB(img) * 65535)     # 16-bit BGR for OpenCV
     utils.imwrite(args.output, img)                 # Save
     print("\nSaved corrected image as " + args.output)
