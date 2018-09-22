@@ -97,7 +97,7 @@ for i in range(len(contours)):
     if hierarchy[0][i][3] > -1:
         # Fit bounding rectangle
         r = cv2.boundingRect(contours[i])
-        x, y, = r[2:]
+        x, y = r[2:]
         # If rectangle is near expected size, add to color_chips
         if x > args.x * 0.8 and x < args.x * 1.2 and \
            y > args.y * 0.8 and y < args.y * 1.2:
@@ -109,7 +109,7 @@ check_length(color_chips)
 color_array = np.array(color_chips)
 h, w = int(np.median(color_array[:, 3])), int(np.median(color_array[:, 2]))
 for i, chip in enumerate(color_chips):
-    x, y, = chip[2:]
+    x, y = chip[2:]
     if x < w * 0.9 or x > w * 1.1 or \
        y < h * 0.9 or y > h * 1.1:
         color_chips[i] = 0
@@ -131,7 +131,7 @@ for i in range(1, len(color_chips)):
 # Assign column and row to detected chips
 # TODO: This could be smarter
 for i in range(len(color_chips)):
-    x, y, = color_chips[i][:2]
+    x, y = color_chips[i][:2]
     # Assign column based x distance from leftmost detected chip
     # 0.8 and 1.2 factors compensate for blank space between adjacent chips
     dist = x - left_x
@@ -165,12 +165,12 @@ for i in range(6):
         chip_index = color_grid[j, i]
         if chip_index < 255:
             chip = color_chips[chip_index]
-            x, y, = chip[:2]
+            x, y = chip[:2]
             if i < 5:
                 next_index = color_grid[j, i + 1]
                 if next_index < 255:
                     next_chip = color_chips[next_index]
-                    next_x, next_y, = next_chip[:2]
+                    next_x, next_y = next_chip[:2]
                     x_spacing += next_x - x
                     # theta += np.arctan((next_y - y) / (next_x - x))
                     x_n += 1
@@ -179,7 +179,7 @@ for i in range(6):
                 next_index = color_grid[j + 1, i]
                 if next_index < 255:
                     next_chip = color_chips[next_index]
-                    next_x, next_y, = next_chip[:2]
+                    next_x, next_y = next_chip[:2]
                     y_spacing += next_chip[1] - chip[1]
                     # theta += np.arctan((next_y - y) / (next_x - x))
                     y_n += 1
@@ -200,25 +200,25 @@ while (color_grid == 255).any():
                 if j > 0 and color_grid[j - 1, i] != 255:
                     found_neighbor = True
                     near_chip = color_chips[color_grid[j - 1, i]]
-                    near_x, near_y, = near_chip[:2]
+                    near_x, near_y = near_chip[:2]
                     x, y = near_x, near_y + y_spacing
                 # ...chip to the left
                 elif i > 0 and color_grid[j, i - 1] != 255:
                     found_neighbor = True
                     near_chip = color_chips[color_grid[j, i - 1]]
-                    near_x, near_y, = near_chip[:2]
+                    near_x, near_y = near_chip[:2]
                     x, y = near_x + x_spacing, near_y
                 # ...chip below
                 elif j < 3 and color_grid[j + 1, i] != 255:
                     found_neighbor = True
                     near_chip = color_chips[color_grid[j + 1, i]]
-                    near_x, near_y, = near_chip[:2]
+                    near_x, near_y = near_chip[:2]
                     x, y = near_x, near_y - y_spacing
                 # ...chip to the right
                 elif i < 5 and color_grid[j, i + 1] != 255:
                     found_neighbor = True
                     near_chip = color_chips[color_grid[j, i + 1]]
-                    near_x, near_y, = near_chip[:2]
+                    near_x, near_y = near_chip[:2]
                     x, y = near_x - x_spacing, near_y
                 # If a good neighbor exists, add new chip to the grid
                 if found_neighbor:

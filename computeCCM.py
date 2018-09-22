@@ -47,7 +47,7 @@ if __name__ == '__main__':
     # ccm = np.linalg.pinv(src).dot(ref)    # same result as np.linalg.lstsq()
 
     # Solve for ccm (3x3 matrix)
-    ccm, res, = np.linalg.lstsq(src, ref, rcond=None)[:2]
+    ccm, res = np.linalg.lstsq(src, ref, rcond=None)[:2]
 
     # Report residuals
     before = ((ref - src) ** 2).sum()
