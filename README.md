@@ -21,75 +21,92 @@ Version numbers only reflect the versions used for development, other versions m
 ## Disclaimer
 This is a heavily-modifed fork of [lighttransport/colorcorrectionmatrix](https://github.com/lighttransport/colorcorrectionmatrix). I have added a color extraction tool (extractColor.py), extensively modified two of the original tools (computeCCM.py and correctColor.py), and removed much of the original content. I want to give credit where credit is due, but please don't blame lighttrasnport if your computer explodes. Or me, for that matter (see the MIT license).
 
+---
+
 # extractColor
 Extract color values from an image containing a standard x-lite colorchecker grid.
 
-## Data
-- Currently, only png and dng source images are supported. Only 8-bit and 10-bit images have been tested so far. Example images are provided in the `img` directory.
-- Color information is saved in CSV format.
+This script attempts to locate color chips in an image by finding areas of max gradient, discarding shapes that don't look like a color chip, and then reconstructing any chips in the grid that it missed. Colors are then averaged within each chip and reported in a csv formatted for use with computeCCM.
+
+Currently, only png and dng source images are supported. Only 8-bit and 10-bit images have been tested so far. Example images are provided in the `img` directory.
 
 ## Usage
 ``` shell
 $ extractColor.py [-h] -x X -y Y [-g GAMMA] [-v] input_image output_csv
 ```
 Required arguments:
-- `input_image` source image
-- `output_csv` path to save color information
-- `-x X` expected width of color chips, in pixels
-- `-y Y` expected height of color chips, in pixels
+- `input_image` Source image
+- `output_csv` Path to save color information
+- `-x X` Expected width of color chips, in pixels
+- `-y Y` Expected height of color chips, in pixels
 
 Optional arguments:
-- `-h, --help` show this help message and exit
-- `-g GAMMA, --gamma GAMMA` gamma value of input image, default 1.0 (no gamma correction)
-- `-v, --verbose` verbose output
+- `-h, --help` Show help message and exit
+- `-g GAMMA, --gamma GAMMA` Gamma value of input image, default 1.0 (no gamma correction)
+- `-v, --verbose` Verbose output
+
+---
 
 # computeCCM
-Compute the 3x3 color correction matrix (CCM) necessary to convert one set of color correction information to another.
+Compute the color correction matrix (CCM) necessary to convert one set of color correction information to another in XYZ color space.
 
-In other words, solve the equation Ax = B, where A is a set of color information from a source image, B is a set of reference color information, and x is the CCM to calculate.
+This script, given two sets of 24x3 sRGB color information A and B, simply converts to XYZ color space and solves the equation Ax = B, where x is a 3x3 CCM. The same CCM can't perfectly convert every color from A to B, so a least squares routine (numpy.lingalg.lstsq()) is used to find the ccm that minimizes overall error.
 
-## Data
-- Color data are loaded from CSV files such as those produced by extractColor.py.
-- CCM data are also saved in CSV format. Optionally, the -v flag will also print results to the terminal.
+Example data are provided in the `data` directory.
 
 ## Usage
 ``` shell
 $ computeCCM.py [-h] [-g GAMMA] [-i ILLUMINANT] [-v] reference_csv source_csv output_csv
 ```
 Required arguments:
-- `reference_csv`
-- `source_csv`
-- `output_csv`
+- `reference_csv` CSV containing reference color information, to be matched
+- `source_csv` CSV containing source color information, to be converted
+- `output_csv` Path to save the calculated CCM as a CSV
 
 Optional arguments:
-- `-h, --help` show this help message and exit
-- `-g GAMMA, --gamma GAMMA` Gamma value of reference and source data.
-- `-i ILLUMINANT, --illuminant ILLUMINANT` lluminant of source and reference images.
+- `-g GAMMA, --gamma GAMMA` Gamma value of reference and source data
+- `-h, --help` Show help message and exit
+- `-i ILLUMINANT, --illuminant ILLUMINANT` lluminant of source and reference images (default D65)
 - `-v, --verbose` verbose output
+
+---
 
 # correctColor
 Apply color correction and other operations to a raw or processed source image.
 
-## Data
-Stuff
+This script corrects a given image using a ccm as calculated by computeCCM using the following routine:
+- Normalize (convert to range 0 - 1)
+- Linearize (remove any existing gamma correction, as indicated by the -g flag)
+- Convert to XYZ color space
+- Correct colors by applying the provided CCM
+- Convert back to sRGB color space
+- Apply gamma correction (gamma = 2.2 unless specified)
+- If source image is a raw format, perform auto white balance and black level
+- Optionally apply auto brightness adjustment
+- Save and display result
+
+Example images and data are provided in the `img` and `data` directories.
 
 ## Usage
 ``` shell
 correctColor.py [-h] [-b] [-g GAMMA] [-i ILLUMINANT] [-v] ccm input [output]
 ```
 Required arguments:
-- `ccm`
-- `input`
+- `ccm` CSV containing the CCM to apply
+- `input` Source image, processed or raw
 
 Optional arguments:
-- `output`
-- `-h, --help` Show help message and exit
+- `output` Path to save the corrected image, if desired
 - `-b, --brightness` Auto-brightness adjustment (done automatically if necessary)
 - `-g GAMMA, --gamma GAMMA` Gamma value of source img (default 1, no gamma applied)
+- `-h, --help` Show help message and exit
 - `-i ILLUMINANT, --illuminant ILLUMINANT` Illuminant, D50 or D65 (default D65)
-- `-v, --verbose` verbose output
+- `-v, --verbose` Verbose output
+
+---
 
 # Example
+This example demonstrates how to extract color info from a source image and a reference image, compute the CCM to convert the source colors to match the reference colors, and then apply that CCM to generate a corrected image.
 
 ## Commands
 ``` shell
@@ -102,18 +119,25 @@ Optional arguments:
 ./correctColor.py -g2.2 -b data/example_ccm.csv img/example_render.png img/example_render_corrected.png
 ```
 
-
 ## Result
+Source image to correct:
+
 ![source image to correct](./img/example_render.png)
+
+Reference image to match:
 
 ![reference image to match](./img/example_ref.png)
 
+Corrected source image:
+
 ![corrected image](./img/example_render_corrected.png)
+
+---
 
 # License
 This repo was originally published under the MIT license. It has been heavily modified from its source, but I'm leaving the MIT license as-is.
 
-See the `Dependencies` section for third-party dependencies, each of which is published under its own license.
+See the Dependencies section for third-party dependencies, each of which is published under its own license.
 
 # References
 Original repo: [lighttransport/colorcorrectionmatrix](https://github.com/lighttransport/colorcorrectionmatrix)
