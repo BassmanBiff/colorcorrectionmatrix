@@ -1,114 +1,119 @@
-# Disclaimer
-This is a fork of [lighttransport/colorcorrectionmatrix](https://github.com/lighttransport/colorcorrectionmatrix). I have added a color extraction tool (extractColor.py) and enabled some of the basic illuminant stuff that was incomplete in the original version. All readme text outside of the "Extract color" section and this disclaimer is from the original project.
+# Introduction
+This project aims to quickly and easily generate and apply a 3x3 color correction matrix (CCM) using processed or raw images.
 
-# Compute Color Correction Matrix (CCM)
+## Contents
+This repository contains three related tools:
+- **extractColor**: Find and extract color values from a raw or processed image containing a 24-chip ColorChecker grid
+- **computeCCM**: Given two sets of color values, compute the color correction matrix (CCM) to convert from one to the other in XYZ color space.
+- **correctColor**: Apply a CCM and other corrections to a raw or processed image.
 
-We compute Color Correction Matrix A.
-In other words, we calculate a 4x3 matrix A which approximate the following equation.  
+Each tool is described in detail below.
 
-Let P be a reference color checker matrix (24 x 3) and O be a color checker 
-matrix to correct (24 x 3).  
-`P = [O 1] A`
+## Dependencies
+Version numbers only reflect the versions used for development, other versions may work too. Developed on Linux Mint 18.3 Sylvia.
+- OpenCV 3.4
+- Python 3.5
+    - exifread 2.1
+    - numpy 1.14
+    - opencv-python 3.4
+    - rawpy 0.12
 
-![reference](./img/referenceStrobo.png)
-![image to correct](./img/renderedStrobo.png)
+## Disclaimer
+This is a heavily-modifed fork of [lighttransport/colorcorrectionmatrix](https://github.com/lighttransport/colorcorrectionmatrix). I have added a color extraction tool (extractColor.py), extensively modified two of the original tools (computeCCM.py and correctColor.py), and removed much of the original content. I want to give credit where credit is due, but please don't blame lighttrasnport if your computer explodes. Or me, for that matter (see the MIT license).
+
+# extractColor
+Extract color values from an image containing a standard x-lite colorchecker grid.
 
 ## Data
-We have to prepare color checker patch data as csv format.
-There are example data in `data` directory.
-- `data/colorchart_photo_strobo_linear.csv`
-- `data/colorchart_rendered_strobo_linear.csv`  
-
-They are 24x3 matrix. The data are made by reading pixel values using [Natron2](https://natron.fr/)
-
-## Dependency
-- Python
-    - numpy
-    - matplotlib
-    - Pillow 
-    - OpenEXR
-- C++
-    - args.hxx(included in this repo)
-    - Eigen3
-
-## Build c++ version of computeCCM
-
-``` shell
-$ cd cpp
-$ mkdir build
-$ cmake ../
-$ make
-```
-
-## Usage
-``` shell 
-# computeCCM.py [-h] [-g GAMMA] reference_csv source_csv output_csv
-$ computeCCM.py data/colorchart_photo_strobo_linear.csv data/colorchart_rendered_strobo_linear.csv ccm.csv
-```
-This command generates optimal Color Correction Matrix as csv file (`ccm.csv`)
-
-## Test
-We can compare reference data and corrected data using `plotChart.py`
-
-``` shell
-$ plotChart.py ccm.csv data/colorchart_photo_strobo_linear.csv data/colorchart_rendered_strobo_linear.csv ccm.csv chart
-```
-![plot chart](img/result_strobo.png)
-
-Each patch shows reference color and corrected color.
-Upper one is reference and lower one is corrected color.
-The numbers mean relative error.
-
-# Color Correction
-Correct given image using CCM.
-`correctColor.py` reads jpg or png images, and
-`correctColorExr.py` reads exr images.
+- Currently, only png and dng source images are supported. Only 8-bit and 10-bit images have been tested so far. Example images are provided in the `img` directory.
+- Color information is saved in CSV format.
 
 ## Usage
 ``` shell
-$ correctColor.py ccm.csv reference.png corrected
+$ extractColor.py [-h] -x X -y Y [-g GAMMA] [-v] input_image output_csv
 ```
+Required arguments:
+- `input_image` source image
+- `output_csv` path to save color information
+- `-x X` expected width of color chips, in pixels
+- `-y Y` expected height of color chips, in pixels
 
-![result](img/stroboCorrected.png)  
-corrected image
+Optional arguments:
+- `-h, --help` show this help message and exit
+- `-g GAMMA, --gamma GAMMA` gamma value of input image, default 1.0 (no gamma correction)
+- `-v, --verbose` verbose output
 
-# Image Diff
+# computeCCM
+Compute the 3x3 color correction matrix (CCM) necessary to convert one set of color correction information to another.
 
-Generate diff image between a reference image and a corrected image. We compute a difference between two images and take average of rgb for each pixels.
+In other words, solve the equation Ax = B, where A is a set of color information from a source image, B is a set of reference color information, and x is the CCM to calculate.
+
+## Data
+- Color data are loaded from CSV files such as those produced by extractColor.py.
+- CCM data are also saved in CSV format. Optionally, the -v flag will also print results to the terminal.
 
 ## Usage
 ``` shell
-$ imageDiff.py photo_reference.png corrected.png
+$ computeCCM.py [-h] [-g GAMMA] [-i ILLUMINANT] [-v] reference_csv source_csv output_csv
 ```
-![diff](img/diffImg.png)
+Required arguments:
+- `reference_csv`
+- `source_csv`
+- `output_csv`
 
-The difference is small as the color approaches blue and 
-the difference is big as the color approaches red.
+Optional arguments:
+- `-h, --help` show this help message and exit
+- `-g GAMMA, --gamma GAMMA` Gamma value of reference and source data.
+- `-i ILLUMINANT, --illuminant ILLUMINANT` lluminant of source and reference images.
+- `-v, --verbose` verbose output
 
-# Extract colors
+# correctColor
+Apply color correction and other operations to a raw or processed source image.
 
-Experimental tool to extract average color values from an image containing a standard colorchecker x-lite grid.
+## Data
+Stuff
 
 ## Usage
 ``` shell
-$ extractColor.py source_img.png output_colors.csv -x=30 -y=20
+correctColor.py [-h] [-b] [-g GAMMA] [-i ILLUMINANT] [-v] ccm input [output]
+```
+Required arguments:
+- `ccm`
+- `input`
+
+Optional arguments:
+- `output`
+- `-h, --help` Show help message and exit
+- `-b, --brightness` Auto-brightness adjustment (done automatically if necessary)
+- `-g GAMMA, --gamma GAMMA` Gamma value of source img (default 1, no gamma applied)
+- `-i ILLUMINANT, --illuminant ILLUMINANT` Illuminant, D50 or D65 (default D65)
+- `-v, --verbose` verbose output
+
+# Example
+
+## Commands
+``` shell
+./extractColor.py -g2.2 -x35 -y25 img/example_render.png data/example_colors_render.csv
+
+./extractColor.py -g2.2 -x34 -y20 img/example_ref.png data/example_colors_ref.csv
+
+./computeCCM.py data/example_colors_ref.csv data/example_colors_render.csv data/example_ccm.csv
+
+./correctColor.py -g2.2 -b data/example_ccm.csv img/example_render.png img/example_render_corrected.png
 ```
 
-* source_img.png should be an image of a standard x-lite colorchecker grid to extract color info from.
-*  output_colors.csv will contain a list of average r, g, and b for each color chip. It can be fed directly into computeCCM.
-* -x and -y can be used to specify the approximate size of color chips to look for, in pixels.
+
+## Result
+![source image to correct](./img/example_render.png)
+
+![reference image to match](./img/example_ref.png)
+
+![corrected image](./img/example_render_corrected.png)
 
 # License
+This repo was originally published under the MIT license. It has been heavily modified from its source, but I'm leaving the MIT license as-is.
 
-CCM is licensed under MIT license.
-
-## Third party licenses
-- [args.hxx](https://github.com/Taywee/args) is licensed under MIT License
-- [Eigen](http://eigen.tuxfamily.org/index.php?title=Main_Page) is licensed under Mozilla Public License
-
+See the `Dependencies` section for third-party dependencies, each of which is published under its own license.
 
 # References
-
-* RGB coordinates of the Macbeth ColorChecker, Danny Pascale. June 1st, 2006 version. http://www.babelcolor.com/index_htm_files/RGB%20Coordinates%20of%20the%20Macbeth%20ColorChecker.pdf
-* Color Correction Matrix http://www.imatest.com/docs/colormatrix/
-* Raw-to-raw: Mapping between image sensor color responses. CVPR 2014. https://www.cv-foundation.org/openaccess/content_cvpr_2014/papers/Nguyen_Raw-to-Raw_Mapping_between_2014_CVPR_paper.pdf
+Original repo: [lighttransport/colorcorrectionmatrix](https://github.com/lighttransport/colorcorrectionmatrix)

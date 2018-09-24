@@ -49,12 +49,10 @@ if __name__ == '__main__':
     # Solve for ccm (3x3 matrix)
     ccm, res = np.linalg.lstsq(src, ref, rcond=None)[:2]
 
-    # Report residuals
-    before = ((ref - src) ** 2).sum()
-    print("\nResiduals\nbefore: {}\nafter: {}".format(before, res.sum()))
-
-    # Save result
+    # Report residuals and save
     if args.verbose:
+        before = ((ref - src) ** 2).sum()
+        print("\nResiduals\nbefore: {}\nafter: {}".format(before, res.sum()))
         print("CCM for {} illuminant:\n".format(args.illuminant), ccm)
     writer = csvwriter(args.output_csv, lineterminator='\n')
     writer.writerow([args.illuminant])

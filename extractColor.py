@@ -50,14 +50,14 @@ parser.add_argument(
 parser.add_argument(
     'output_csv', type=argparse.FileType('w'), default='colorchart.csv')
 parser.add_argument(
-    '-g', '--gamma', type=float, default=1.0,
-    help="gamma value of input image")
-parser.add_argument(
     '-x', required=True, type=int,
     help="expected width of color chips, in pixels")
 parser.add_argument(
-    '-y', required=True, type=int,     # Should be -h and -w, but -h is taken by "help" :(
+    '-y', required=True, type=int,     # Should be -h, taken by "help" :(
     help="expected height of color chips, in pixels")
+parser.add_argument(
+    '-g', '--gamma', type=float, default=1.0,
+    help="gamma value of input image, default 1.0 (no gamma correction)")
 parser.add_argument(
     '-v', '--verbose', action="store_true", default=False,
     help="verbose output")
@@ -74,7 +74,6 @@ utils.imshow('Input', img_display)
 
 # Normalize and degamma
 img = np.power(img/65535, args.gamma, dtype=np.float64)
-print(img.max(), img.min())
 
 # Find edges
 img_edges = np.uint8(img * 255)                   # 8-bit (for Canny)

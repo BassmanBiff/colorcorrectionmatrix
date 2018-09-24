@@ -91,19 +91,21 @@ if __name__ == '__main__':
     img = np.power(img, 1/gamma, where=img > 0)
     update("gamma", img)
 
-    # White balance and black level
-    n_channels = 3
-    white_balance = np.empty(n_channels, dtype=np.float64)
-    black_balance = np.empty(n_channels, dtype=np.float64)
-    for i in range(n_channels):
-        channel = img[..., i]
-        white_balance[i], black_balance[i] = channel.max(), channel.min()
-    white_level = white_balance.min()               # White balance
-    img[img > white_level] = white_level
-    update("white balance", img)
-    black_level = black_balance.max()               # Black level
-    img = np.where(img > black_level, img - black_level, 0)
-    update("black level", img)
+    # White balance and black level, only for raw images
+    if args.gamma == 1.0:
+        n_channels = 3
+        white_balance = np.empty(n_channels, dtype=np.float64)
+        black_balance = np.empty(n_channels, dtype=np.float64)
+        for i in range(n_channels):
+            channel = img[..., i]
+            white_balance[i], black_balance[i] = channel.max(), channel.min()
+        white_level = white_balance.min()               # White balance
+        img[img > white_level] = white_level
+        # img /= white_level
+        update("white balance", img)
+        black_level = black_balance.max()               # Black level
+        img = np.where(img > black_level, img - black_level, 0)
+        update("black level", img)
 
     # Brightness
     if args.brightness or img.max() > 1.0:
@@ -111,11 +113,11 @@ if __name__ == '__main__':
         update("brightness", img)
 
     # Save and display
-    if args.verbose:
+    if args.verbose and args.gamma == 1.0:
         white_balance /= white_balance.max()
         print("\nWhite balance (R, G, B): {}".format(white_balance))
         print("Black level: {}".format(black_level))
-    img = np.float32(utils.rgb2bgr(img))            # float32 BGR for OpenCV
+    img = np.uint16(utils.rgb2bgr(img * 65535))     # 16-bit BGR for OpenCV
     if args.output:                                 # Save
         utils.imwrite(args.output, img)
         print("\nSaved corrected image as " + args.output)

@@ -68,13 +68,23 @@ def imwrite(filename, img):
 
 # Color conversions
 def bgr2rgb(bgr):
-    return bgr[..., ::-1]
+    if bgr.dtype in (np.uint8, np.uint16, np.float32):
+        rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
+    else:
+        rgb = bgr[..., ::-1]
+    return rgb
+    # return bgr[..., ::-1]
     # return cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
 
 
 def rgb2bgr(rgb):
-    return rgb[..., ::-1]
-    # return cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
+    if rgb.dtype in (np.uint8, np.uint16, np.float32):
+        bgr = cv2.cvtColor(rgb, cv2.COLOR_BGR2RGB)
+    else:
+        bgr = rgb[..., ::-1]
+    return bgr
+    # return rgb[..., ::-1]
+    return cv2.cvtColor(rgb, cv2.COLOR_BGR2RGB)
 
 
 def rgb2xyz(rgb, illuminant):
