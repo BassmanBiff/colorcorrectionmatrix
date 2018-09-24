@@ -8,6 +8,10 @@ import rawpy
 
 
 # Input / output
+def display_scale(img, size=1024):
+    return min(size / max(img.shape), 1)
+
+
 def imread(filename, gamma=1):
     '''Load image as 16-bit RGB (OpenCV default is BGR)'''
     if filename[-4:] == '.png':         # png
@@ -103,11 +107,6 @@ def xyz2rgb(xyz, illuminant):
     else:
         raise ValueError("Invalid illuminant: {}".format(illuminant))
     return np.dot(xyz, M)
-
-
-# Misc
-def display_scale(img, size=1024):
-    return min(size / max(img.shape), 1)
 
 
 if __name__ == '__main__':
