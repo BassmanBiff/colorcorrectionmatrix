@@ -1,5 +1,5 @@
 # Introduction
-This project aims to quickly and easily generate and apply a 3x3 color correction matrix (CCM) using processed or raw images.
+This project aims to quickly and easily generate and apply a 3x3 color correction matrix (CCM).
 
 ## Contents
 This repository contains three related tools:
