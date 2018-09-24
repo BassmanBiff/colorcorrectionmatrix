@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 
-# TODO: Verify renormalization; use original max/min?
-
 import argparse
 import colorutils as utils
 import numpy as np
@@ -52,8 +50,11 @@ if __name__ == '__main__':
     parser.add_argument(
         'output', action='store', type=str, nargs='?', default=None)
     parser.add_argument(
+        '-b', '--brightness', action='store_true',
+        help="Auto-brightness adjustment (done automatically if necessary)")
+    parser.add_argument(
         '-g', '--gamma',  action='store', type=float, default=1.0,
-        help="Gamma value of source img, default=1")
+        help="Gamma value of source img (default 1, no gamma applied)")
     parser.add_argument(
         '-i', '--illuminant', action='store', type=str, default='D65',
         help="Illuminant, D50 or D65 (default D65)")
@@ -68,7 +69,7 @@ if __name__ == '__main__':
     scale = utils.display_scale(img)
     utils.imshow("Input", utils.rgb2bgr(img), scale)  # Need BGR for display
 
-    # Color and gamma correction
+    # Color correction
     if args.verbose:
         print("\n{:<18}{:<24}{}".format("Processing step", "Min px", "Max px"))
     img = np.divide(img, 65535, dtype=np.float64)   # Normalize (range 0 - 1)
@@ -84,8 +85,10 @@ if __name__ == '__main__':
     update("color correction", img)
     img = utils.xyz2rgb(img, args.illuminant)       # RGB
     update("rgb", img)
-    gamma = 2.2 if args.gamma == 1 else args.gamma  # Gamma correction
-    img = np.where(img < 0, 0, img ** 1/gamma)
+
+    # Gamma correction
+    gamma = 2.2 if args.gamma == 1.0 else args.gamma
+    img = np.power(img, 1/gamma, where=img > 0)
     update("gamma", img)
 
     # White balance and black level
@@ -99,11 +102,13 @@ if __name__ == '__main__':
     img[img > white_level] = white_level
     update("white balance", img)
     black_level = black_balance.max()               # Black level
-    img -= black_level
+    img = np.where(img > black_level, img - black_level, 0)
     update("black level", img)
-    img = np.where(img < 0, 0, img / img.max())     # Brightness (renormalize)
-    # img[img < 0] = 0
-    update("brightness", img)
+
+    # Brightness
+    if args.brightness or img.max() > 1.0:
+        img /= img.max()
+        update("brightness", img)
 
     # Save and display
     if args.verbose:
