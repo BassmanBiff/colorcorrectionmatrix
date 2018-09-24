@@ -53,10 +53,10 @@ parser.add_argument(
     '-g', '--gamma', type=float, default=1.0,
     help="gamma value of input image")
 parser.add_argument(
-    '-x', type=int,
+    '-x', required=True, type=int,
     help="expected width of color chips, in pixels")
 parser.add_argument(
-    '-y', type=int,     # Should be -h and -w, but -h is taken by "help" :(
+    '-y', required=True, type=int,     # Should be -h and -w, but -h is taken by "help" :(
     help="expected height of color chips, in pixels")
 parser.add_argument(
     '-v', '--verbose', action="store_true", default=False,
