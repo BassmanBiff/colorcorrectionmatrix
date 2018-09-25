@@ -73,8 +73,6 @@ def bgr2rgb(bgr):
     else:
         rgb = bgr[..., ::-1]
     return rgb
-    # return bgr[..., ::-1]
-    # return cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
 
 
 def rgb2bgr(rgb):
@@ -83,8 +81,6 @@ def rgb2bgr(rgb):
     else:
         bgr = rgb[..., ::-1]
     return bgr
-    # return rgb[..., ::-1]
-    return cv2.cvtColor(rgb, cv2.COLOR_BGR2RGB)
 
 
 def rgb2xyz(rgb, illuminant):
