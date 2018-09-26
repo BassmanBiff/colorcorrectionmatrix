@@ -3,8 +3,8 @@ This project aims to quickly and easily generate and apply a 3x3 color correctio
 
 ## Contents
 This repository contains three related tools:
-- **extractColor**: Find and extract color values from a raw or processed image containing a 24-chip ColorChecker grid
-- **computeCCM**: Given two sets of color values, compute the color correction matrix (CCM) to convert from one to the other in XYZ color space.
+- **extractColor**: Find and extract color values from a raw or processed image containing a 24-chip ColorChecker grid.
+- **computeCCM**: Compute the color correction matrix (CCM) to convert from one set of colors to another other in XYZ space.
 - **correctColor**: Apply a CCM and other corrections to a raw or processed image.
 
 Each tool is described in detail below.
@@ -19,16 +19,16 @@ Version numbers only reflect the versions used for development, other versions m
     - rawpy 0.12
 
 ## Disclaimer
-This is a heavily-modifed fork of [lighttransport/colorcorrectionmatrix](https://github.com/lighttransport/colorcorrectionmatrix). I have added a color extraction tool (extractColor.py), extensively modified two of the original tools (computeCCM.py and correctColor.py), and removed much of the original content. I want to give credit where credit is due, but please don't blame lighttrasnport if your computer explodes. Or me, for that matter (see the MIT license).
+This is a heavily-modifed fork of [lighttransport/colorcorrectionmatrix](https://github.com/lighttransport/colorcorrectionmatrix). I have added a color extraction tool (extractColor.py), extensively modified two of the original tools (computeCCM.py and correctColor.py), and removed much of the original content. I want to give credit where credit is due, but please don't blame lighttrasnport if this does something horrible to your computer. Or me, for that matter (see MIT license).
 
 ---
 
 # extractColor
 Extract color values from an image containing a standard x-lite colorchecker grid.
 
-This script attempts to locate color chips in an image by finding areas of max gradient, discarding shapes that don't look like a color chip, and then reconstructing any chips in the grid that it missed. Colors are then averaged within each chip and reported in a csv formatted for use with computeCCM.
+This script attempts to locate color chips in an image by finding areas of max gradient, discarding shapes that don't look like a color chip, and then reconstructing any chips in the grid that it missed. Colors are then averaged within each chip and reported in a csv formatted for use with computeCCM. This auto-detection feature could be a lot more intelligent than it currently is, if anyone wants to implement this the right way!
 
-Currently, only png and dng source images are supported. Only 8-bit and 10-bit images have been tested so far. Example images are provided in the `img` directory.
+Currently, only 8-bit png and 10-bit dng source images have been tested, but other formats up to 16-bit should work as well. Example images are provided in the `img` directory for testing.
 
 ## Usage
 ``` shell
@@ -48,9 +48,9 @@ Optional arguments:
 ---
 
 # computeCCM
-Compute the color correction matrix (CCM) necessary to convert one set of color correction information to another in XYZ color space.
+Compute the color correction matrix (CCM) necessary to convert one set of colors to another in XYZ color space.
 
-This script, given two sets of 24x3 sRGB color information A and B, simply converts to XYZ color space and solves the equation Ax = B, where x is a 3x3 CCM. The same CCM can't perfectly convert every color from A to B, so a least squares routine (numpy.lingalg.lstsq()) is used to find the ccm that minimizes overall error.
+This script, given two sets of 24x3 sRGB color information A and B, simply converts both to XYZ color space and solves the equation Ax = B, where x is a 3x3 CCM. The same CCM can't perfectly match all 24 colors, so a least squares routine (numpy.lingalg.lstsq()) is used to find the CCM that minimizes overall error.
 
 Example data are provided in the `data` directory.
 
@@ -84,6 +84,8 @@ This script corrects a given image using a ccm as calculated by computeCCM using
 - If source image is a raw format, perform auto white balance and black level
 - Optionally apply auto brightness adjustment
 - Save and display result
+
+This is my first attempt at a pipeline for developing raw images, so improvements to any step in this pipeline are welcome. 
 
 Example images and data are provided in the `img` and `data` directories.
 
