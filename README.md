@@ -1,6 +1,9 @@
 # Introduction
 This project aims to quickly and easily generate and apply a 3x3 color correction matrix (CCM).
 
+## Disclaimer
+This is a heavily-modifed fork of [lighttransport/colorcorrectionmatrix](https://github.com/lighttransport/colorcorrectionmatrix). I have added a color extraction tool (extractColor.py), extensively modified two of the original tools (computeCCM.py and correctColor.py), and removed much of the original content. I want to give credit where credit is due, but please don't blame lighttrasnport if this does something horrible to your computer. Or me, for that matter (see MIT license).
+
 ## Contents
 This repository contains three related tools:
 - **extractColor**: Find and extract color values from a raw or processed image containing a 24-chip ColorChecker grid.
@@ -17,9 +20,6 @@ Version numbers only reflect the versions used for development, other versions m
     - numpy 1.14
     - opencv-python 3.4
     - rawpy 0.12
-
-## Disclaimer
-This is a heavily-modifed fork of [lighttransport/colorcorrectionmatrix](https://github.com/lighttransport/colorcorrectionmatrix). I have added a color extraction tool (extractColor.py), extensively modified two of the original tools (computeCCM.py and correctColor.py), and removed much of the original content. I want to give credit where credit is due, but please don't blame lighttrasnport if this does something horrible to your computer. Or me, for that matter (see MIT license).
 
 ---
 
